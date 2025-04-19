@@ -1,0 +1,93 @@
+.container {
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-family: "Trebuchet MS", "Lucida Sans Unicode", "Lucida Grande",
+    "Lucida Sans", Arial, sans-serif;
+
+  .header {
+    font-weight: bolder;
+    font-size: 30px;
+  }
+  .choosePieceColor {
+    display: flex;
+    flex-direction: column;
+    .button {
+      display: flex;
+      gap: 10px;
+    }
+  }
+  .scoresContainer {
+    height: 80px;
+    .scoreContainer {
+      height: 40px;
+      margin: 0;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      .capturedPieces {
+        display: flex;
+        gap: 5px;
+        border-radius: 5px;
+        height: 30px;
+        align-items: center;
+        padding-right: 5px;
+        padding-left: 5px;
+        .capturedPiece {
+          height: 20px;
+          width: 20px;
+        }
+      }
+    }
+  }
+
+  .body {
+    .row {
+      display: flex;
+      flex-direction: row;
+      .box {
+        display: flex;
+        flex-direction: row;
+        height: 40px;
+        width: 40px;
+        border: 1px solid white;
+        &.whiteBox {
+          background-color: white;
+        }
+        &.blackBox {
+          background-color: rgb(91, 91, 91);
+        }
+        &.highlight {
+          background-color: rgb(255, 240, 141);
+        }
+        &.danger {
+          background-color: orange;
+        }
+        &.opacity {
+          opacity: 0.7;
+        }
+        &.lastMoved {
+          background-color: rgb(161, 217, 215);
+        }
+      }
+    }
+  }
+  @keyframes blink {
+    0%,
+    100% {
+      background-color: #e1d9d9;
+    }
+    50% {
+      background-color: #211f1f;
+    }
+  }
+
+  .blinkingTimer {
+    animation: blink 1s infinite;
+    margin: 5px;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+  }
+}
