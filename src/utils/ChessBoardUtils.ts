@@ -1,3 +1,5 @@
+import socket from "../Socket/socket";
+
 const isSafe = (
   grid: number[][],
   row: number,
@@ -25,16 +27,23 @@ const movePiece = (
   setPiecesInAttack: React.Dispatch<React.SetStateAction<number[][]>>,
   setBlackScore: React.Dispatch<React.SetStateAction<number[]>>,
   setWhiteScore: React.Dispatch<React.SetStateAction<number[]>>,
-  setShowTooltip: React.Dispatch<React.SetStateAction<boolean>>
+  setShowTooltip: React.Dispatch<React.SetStateAction<boolean>>,
+  roomId: string
 ) => {
   let executed = false;
   setValidMoves([[]]);
   setPiecesInAttack([[]]);
-  let isPawn: boolean = false;
+  socket.emit("move", {
+    roomId: roomId,
+    move: {
+      from: { row: movingPiece.rowIndex, col: movingPiece.colIndex },
+      to: { row: row, col: col },
+    },
+  });
   setGrid((prevGrid) => {
     let newGrid = prevGrid.map((r: number[]) => [...r]);
     const piece = newGrid[row][col];
-    isPawn = piece == 6 || piece == -6;
+ 
     if (!executed) {
       setBlackScore((prev) => (piece > 0 ? [...prev, piece] : prev));
       setWhiteScore((prev) => (piece < 0 ? [...prev, piece] : prev));
@@ -265,6 +274,7 @@ export const handleSquareClick = (
   isBlackMove: boolean,
   setIsBlackMove: React.Dispatch<React.SetStateAction<boolean>>,
   isWhitePieceDown: boolean,
+  roomId: string
 ) => {
   if (
     validMoves.some((move) => move[0] == row && move[1] == col) ||
@@ -273,12 +283,7 @@ export const handleSquareClick = (
     if (movingPiece.rowIndex == -1) {
       return;
     }
-    // const pieceVal = grid[movingPiece.rowIndex][movingPiece.colIndex];
-    // if (pieceVal == 1) {
-    //   setWhiteKingPosition({ row, col });
-    // } else if (pieceVal == -1) {
-    //   setBlackKingPosition({ row, col });
-    // }
+
 
     if (movingPiece.rowIndex == row && movingPiece.colIndex == col) {
     }
@@ -295,7 +300,8 @@ export const handleSquareClick = (
       setPiecesInAttack,
       setBlackScore,
       setWhiteScore,
-      setShowTooltip
+      setShowTooltip,
+      roomId
     );
     setMovingPiece({ rowIndex: row, colIndex: col });
   } else {

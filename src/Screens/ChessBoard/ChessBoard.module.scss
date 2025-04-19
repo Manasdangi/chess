@@ -14,6 +14,9 @@
   .choosePieceColor {
     display: flex;
     flex-direction: column;
+    .choosePieceColorText{
+      text-align: center;
+    }
     .button {
       display: flex;
       gap: 10px;
@@ -90,4 +93,11 @@
     border-radius: 4px;
     transition: background-color 0.3s ease;
   }
+}
+
+.waitingText {
+  font-size: 1.2rem;
+  color: #666;
+  text-align: center;
+  margin: 1rem 0;
 }

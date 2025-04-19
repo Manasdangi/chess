@@ -7,8 +7,13 @@ import pieceImages, { classNames, pieceMap } from "../../utils/Util";
 import { handleSquareClick } from "../../utils/ChessBoardUtils";
 import { blackTopWhiteDown, whiteTopBlackDown } from "../../constants";
 import Timer from "./Components/Timer";
+import { useParams, useNavigate } from "react-router-dom";
+import socket from "../../Socket/socket";
+import Popup from "../Home/Popup";
 
 const ChessBoard = () => {
+  const { roomId } = useParams();
+  const navigate = useNavigate();
   const [grid, setGrid] = useState<number[][]>([[]]);
   const [chosenPieceColor, setChosenPieceColor] = useState<
     "white" | "black" | null
@@ -27,14 +32,58 @@ const ChessBoard = () => {
     rowIndex: -1,
     colIndex: -1,
   });
-
-  // const [[kingIsChecked, setIsKingIsChecked]] = useState(false);
   const [whiteTime, setWhiteTime] = useState(600); // 600 seconds = 10 mins
   const [blackTime, setBlackTime] = useState(600);
   const [intervalId, setIntervalId] = useState<ReturnType<
     typeof setInterval
   > | null>(null);
   const [winner, setWinner] = useState<"white" | "black" | null>(null);
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState("");
+  const [popupType, setPopupType] = useState<"success" | "error">("success");
+  const [isCreator, setIsCreator] = useState(false);
+  const [playerCount, setPlayerCount] = useState(1);
+
+  const showMessage = (message: string, type: "success" | "error" = "success") => {
+    setPopupMessage(message);
+    setPopupType(type);
+    setShowPopup(true);
+  };
+
+  useEffect(() => {
+    if (!roomId) {
+      showMessage("No room ID provided", "error");
+      navigate("/");
+      return;
+    }
+
+    // Set up event listeners first
+    const handlePlayerJoined = (data: { message: string; isCreator: boolean; }) => {
+      console.log("playerJoined event received:", data);
+      showMessage(data?.message);
+      setIsCreator(data?.isCreator);
+    };
+
+    socket.on("playerJoined", handlePlayerJoined);
+
+    // Then check and join the room
+    socket.emit("checkRoom", roomId, (exists: boolean) => {
+      if (!exists) {
+        showMessage("Room does not exist", "error");
+        navigate("/");
+        return;
+      }
+      
+      socket.emit("joinRoom", roomId, false);
+      console.log("joined room123", roomId);
+    });
+
+    // Clean up
+    return () => {
+      socket.off("playerJoined", handlePlayerJoined);
+      socket.emit("leaveRoom", roomId);
+    };
+  }, [roomId, navigate]);
 
   useEffect(() => {
     if (!chosenPieceColor) return;
@@ -75,6 +124,20 @@ const ChessBoard = () => {
     }
   }, [chosenPieceColor]);
 
+  // Handle opponent's moves
+  useEffect(() => {
+    const handleOpponentMove = (move: any) => {
+      // Handle opponent's move here
+      setIsBlackMove(!isBlackMove);
+    };
+
+    socket.on("opponentMove", handleOpponentMove);
+
+    return () => {
+      socket.off("opponentMove", handleOpponentMove);
+    };
+  }, [isBlackMove]);
+
   //select piece from tooltip
   const selectPiece = (piece: number) => {
     setValidMoves([[]]);
@@ -87,8 +150,6 @@ const ChessBoard = () => {
     setShowTooltip(false);
   };
 
-
-
   const onSquareClick = (
     e: React.MouseEvent<HTMLDivElement, MouseEvent>,
     rowIndex: number,
@@ -97,7 +158,9 @@ const ChessBoard = () => {
     setCurrentRow(rowIndex);
     setCurrentCol(colIndex);
     console.log(`Row: ${rowIndex}, Col: ${colIndex}`);
-  
+
+    if (!roomId) return;
+
     handleSquareClick(
       e,
       grid,
@@ -117,7 +180,8 @@ const ChessBoard = () => {
       setShowTooltip,
       isBlackMove,
       setIsBlackMove,
-      chosenPieceColor === "white" 
+      chosenPieceColor === "white",
+      roomId
     );
   };
 
@@ -160,11 +224,11 @@ const ChessBoard = () => {
                   isDanger && styles.danger,
                   isBlackMove && grid[rowIndex][colIndex] > 0 && styles.opacity,
                   !isBlackMove &&
-                    grid[rowIndex][colIndex] < 0 &&
-                    styles.opacity,
+                  grid[rowIndex][colIndex] < 0 &&
+                  styles.opacity,
                   rowIndex == movingPiece.rowIndex &&
-                    colIndex == movingPiece.colIndex &&
-                    styles.lastMoved
+                  colIndex == movingPiece.colIndex &&
+                  styles.lastMoved
                 )}
                 onClick={(e) => onSquareClick(e, rowIndex, colIndex)}
               >
@@ -192,11 +256,21 @@ const ChessBoard = () => {
 
       {!chosenPieceColor ? (
         <div className={styles.choosePieceColor}>
-          <p>Choose your piece color</p>
-          <div className={styles.button}>
-            <button onClick={() => setChosenPieceColor("black")}>Black</button>
-            <button onClick={() => setChosenPieceColor("white")}>White</button>
-          </div>
+          {isCreator ? (
+            <>
+              <p className={styles.choosePieceColorText}>Choose your piece color</p>
+              <div className={styles.button}>
+                <button onClick={() => setChosenPieceColor("black")}>Black</button>
+                <button onClick={() => setChosenPieceColor("white")}>White</button>
+              </div>
+            </>
+          ) : (
+            <p className={styles.waitingText}>
+              {playerCount === 1 
+                ? "Waiting for another player to join..." 
+                : "Waiting for room creator to choose color..."}
+            </p>
+          )}
         </div>
       ) : (
         <>
@@ -216,6 +290,13 @@ const ChessBoard = () => {
             />
           )}
         </>
+      )}
+      {showPopup && (
+        <Popup
+          message={popupMessage}
+          onClose={() => setShowPopup(false)}
+          type={popupType}
+        />
       )}
     </div>
   );
