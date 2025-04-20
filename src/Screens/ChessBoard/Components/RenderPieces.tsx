@@ -1,4 +1,4 @@
-import pieceImages, { pieceMap } from "../../../utils/Util";
+import pieceImages, { pieceMap } from '../../../utils/Util';
 
 const RenderPieces: React.FC<{
   val: number;

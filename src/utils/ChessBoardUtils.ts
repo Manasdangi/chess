@@ -1,19 +1,7 @@
-import socket from "../Socket/socket";
+import socket from '../Socket/socket';
 
-const isSafe = (
-  grid: number[][],
-  row: number,
-  col: number,
-  checkNull: boolean = true
-) => {
-  if (
-    row < 0 ||
-    row > 7 ||
-    col < 0 ||
-    col > 7 ||
-    (checkNull && grid[row][col] != 0)
-  )
-    return false;
+const isSafe = (grid: number[][], row: number, col: number, checkNull: boolean = true) => {
+  if (row < 0 || row > 7 || col < 0 || col > 7 || (checkNull && grid[row][col] != 0)) return false;
   else return true;
 };
 
@@ -33,20 +21,20 @@ const movePiece = (
   let executed = false;
   setValidMoves([[]]);
   setPiecesInAttack([[]]);
-  socket.emit("move", {
+  socket.emit('move', {
     roomId: roomId,
     move: {
       from: { row: movingPiece.rowIndex, col: movingPiece.colIndex },
       to: { row: row, col: col },
     },
   });
-  setGrid((prevGrid) => {
+  setGrid(prevGrid => {
     let newGrid = prevGrid.map((r: number[]) => [...r]);
     const piece = newGrid[row][col];
- 
+
     if (!executed) {
-      setBlackScore((prev) => (piece > 0 ? [...prev, piece] : prev));
-      setWhiteScore((prev) => (piece < 0 ? [...prev, piece] : prev));
+      setBlackScore(prev => (piece > 0 ? [...prev, piece] : prev));
+      setWhiteScore(prev => (piece < 0 ? [...prev, piece] : prev));
     }
     newGrid[row][col] = prevGrid[movingPiece.rowIndex][movingPiece.colIndex];
     newGrid[movingPiece.rowIndex][movingPiece.colIndex] = 0;
@@ -109,10 +97,7 @@ const getKnightMoves = (
   return {
     moves1: potentialMoves.filter(([r, c]) => isSafe(grid, r, c)),
     moves2: potentialMoves.filter(
-      ([r, c]) =>
-        isSafe(grid, r, c, false) &&
-        grid[r][c] != 0 &&
-        grid[r][c] * grid[row][col] < 0
+      ([r, c]) => isSafe(grid, r, c, false) && grid[r][c] != 0 && grid[r][c] * grid[row][col] < 0
     ),
   };
 };
@@ -146,10 +131,7 @@ const highLight = (
     case 6:
     case -6:
       let step;
-      if (
-        (grid[row][col] > 0 && !isWhitePieceDown) ||
-        (grid[row][col] < 0 && isWhitePieceDown)
-      )
+      if ((grid[row][col] > 0 && !isWhitePieceDown) || (grid[row][col] < 0 && isWhitePieceDown))
         step = 1;
       else step = -1;
 
@@ -158,16 +140,10 @@ const highLight = (
         if ((row === 1 || row === 6) && isSafe(grid, row + step * 2, col))
           validMoves.push([row + step * 2, col]);
       }
-      if (
-        isBounded(row + step * 1, col - 1) &&
-        grid[row + step * 1][col - 1] !== 0
-      ) {
+      if (isBounded(row + step * 1, col - 1) && grid[row + step * 1][col - 1] !== 0) {
         attackingMoves.push([row + step * 1, col - 1]);
       }
-      if (
-        isBounded(row + step * 1, col + 1) &&
-        grid[row + step * 1][col + 1] !== 0
-      ) {
+      if (isBounded(row + step * 1, col + 1) && grid[row + step * 1][col + 1] !== 0) {
         attackingMoves.push([row + step * 1, col + 1]);
       }
       break;
@@ -242,11 +218,8 @@ const highLight = (
 
     default:
   }
-  setValidMoves((prevValidMoves) => [...prevValidMoves, ...validMoves]);
-  setPiecesInAttack((prevAttackingMoves) => [
-    ...prevAttackingMoves,
-    ...attackingMoves,
-  ]);
+  setValidMoves(prevValidMoves => [...prevValidMoves, ...validMoves]);
+  setPiecesInAttack(prevAttackingMoves => [...prevAttackingMoves, ...attackingMoves]);
 };
 
 export const handleSquareClick = (
@@ -277,19 +250,18 @@ export const handleSquareClick = (
   roomId: string
 ) => {
   if (
-    validMoves.some((move) => move[0] == row && move[1] == col) ||
-    piecesInAttack.some((move) => move[0] == row && move[1] == col)
+    validMoves.some(move => move[0] == row && move[1] == col) ||
+    piecesInAttack.some(move => move[0] == row && move[1] == col)
   ) {
     if (movingPiece.rowIndex == -1) {
       return;
     }
 
-
     if (movingPiece.rowIndex == row && movingPiece.colIndex == col) {
     }
     setTooltipX(event.clientX);
     setTooltipY(event.clientY);
-    setIsBlackMove((prev) => !prev);
+    setIsBlackMove(prev => !prev);
     movePiece(
       grid,
       row,
@@ -316,13 +288,6 @@ export const handleSquareClick = (
     if (!isBlackMove && grid[row][col] < 0) return;
 
     setMovingPiece({ rowIndex: row, colIndex: col });
-    highLight(
-      grid,
-      row,
-      col,
-      setValidMoves,
-      setPiecesInAttack,
-      isWhitePieceDown
-    );
+    highLight(grid, row, col, setValidMoves, setPiecesInAttack, isWhitePieceDown);
   }
 };

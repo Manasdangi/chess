@@ -1,13 +1,13 @@
-import { useEffect } from "react";
-import styles from "./Home.module.scss";
+import { useEffect } from 'react';
+import styles from './Home.module.scss';
 
 interface PopupProps {
   message: string;
   onClose: () => void;
-  type?: "success" | "error";
+  type?: 'success' | 'error';
 }
 
-export default function Popup({ message, onClose, type = "success" }: PopupProps) {
+export default function Popup({ message, onClose, type = 'success' }: PopupProps) {
   useEffect(() => {
     const timer = setTimeout(() => {
       onClose();
@@ -21,4 +21,4 @@ export default function Popup({ message, onClose, type = "success" }: PopupProps
       <p>{message}</p>
     </div>
   );
-} 
+}

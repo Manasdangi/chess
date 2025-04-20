@@ -4,4 +4,4 @@ export interface Move {
   piece: string;
   color: 'white' | 'black';
   promotion?: string;
-} 
+}

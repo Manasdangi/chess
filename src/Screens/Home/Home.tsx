@@ -1,18 +1,18 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import socket from "../../Socket/socket";
-import styles from "./Home.module.scss";
-import Popup from "./Popup";
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import socket from '../../Socket/socket';
+import styles from './Home.module.scss';
+import Popup from './Popup';
 
 export default function Home() {
-  const [roomId, setRoomId] = useState("");
-  const [error, setError] = useState("");
+  const [roomId, setRoomId] = useState('');
+  const [error, setError] = useState('');
   const [showPopup, setShowPopup] = useState(false);
-  const [popupMessage, setPopupMessage] = useState("");
-  const [popupType, setPopupType] = useState<"success" | "error">("success");
+  const [popupMessage, setPopupMessage] = useState('');
+  const [popupType, setPopupType] = useState<'success' | 'error'>('success');
   const navigate = useNavigate();
 
-  const showMessage = (message: string, type: "success" | "error" = "success") => {
+  const showMessage = (message: string, type: 'success' | 'error' = 'success') => {
     setPopupMessage(message);
     setPopupType(type);
     setShowPopup(true);
@@ -20,35 +20,31 @@ export default function Home() {
 
   const handleJoin = () => {
     if (!roomId) {
-      showMessage("Please enter a room ID", "error");
+      showMessage('Please enter a room ID', 'error');
       return;
     }
-    
-    socket.emit("checkRoom", roomId, (exists: boolean) => {
+
+    socket.emit('checkRoom', roomId, (exists: boolean) => {
       if (exists) {
-        console.log("joining room", roomId);
-        console.log("joinRoom", roomId);
-        socket.emit("joinRoom", roomId);
-        showMessage("Joining room...");
+        console.log('joining room', roomId);
+        console.log('joinRoom', roomId);
+        showMessage('Joining room...');
         navigate(`/room/${roomId}`);
       } else {
-        showMessage("Room does not exist", "error");
+        showMessage('Room does not exist', 'error');
       }
     });
   };
 
   const handleCreate = () => {
-    console.log("handleCreate");
     const newRoomId = Math.random().toString(36).substring(2, 8);
-    socket.emit("checkRoom", newRoomId, (exists: boolean) => {
+    socket.emit('checkRoom', newRoomId, (exists: boolean) => {
       if (exists) {
-        console.log("room exists, trying again");
+        console.log('room already used, trying again');
         handleCreate();
       } else {
-        console.log("room does not exist, creating room");
         setRoomId(newRoomId);
-        console.log("createRoom", newRoomId);
-        socket.emit("joinRoom", newRoomId, true);
+        console.log('creatingRoom', newRoomId);
         navigate(`/room/${newRoomId}`);
       }
     });
@@ -61,9 +57,9 @@ export default function Home() {
         <input
           placeholder="Enter Room ID"
           value={roomId}
-          onChange={(e) => {
+          onChange={e => {
             setRoomId(e.target.value);
-            setError("");
+            setError('');
           }}
         />
         <button onClick={handleJoin}>Join Game</button>
@@ -72,11 +68,7 @@ export default function Home() {
       <div className={styles.divider}>OR</div>
       <button onClick={handleCreate}>Create New Game</button>
       {showPopup && (
-        <Popup
-          message={popupMessage}
-          onClose={() => setShowPopup(false)}
-          type={popupType}
-        />
+        <Popup message={popupMessage} onClose={() => setShowPopup(false)} type={popupType} />
       )}
     </div>
   );

@@ -24,12 +24,12 @@
   transition: all 0.3s ease;
 
   &:hover {
-    border-color: #4CAF50;
+    border-color: #4caf50;
     box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
   }
 
   &:focus-within {
-    border-color: #4CAF50;
+    border-color: #4caf50;
     box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
   }
 }
@@ -55,7 +55,7 @@ input {
 
 button {
   padding: 0.5rem 1rem;
-  background-color: #4CAF50;
+  background-color: #4caf50;
   color: white;
   border: none;
   border-radius: 4px;
@@ -99,7 +99,7 @@ button {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 
   &.success {
-    background-color: #4CAF50;
+    background-color: #4caf50;
   }
 
   &.error {

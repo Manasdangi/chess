@@ -1,13 +1,13 @@
 // Components/Timer.tsx
-import styles from "../ChessBoard.module.scss";
-import { formatTime } from "../../../utils/Util";
+import styles from '../ChessBoard.module.scss';
+import { formatTime } from '../../../utils/Util';
 
 interface TimerProps {
-  chosenPieceColor: "white" | "black";
+  chosenPieceColor: 'white' | 'black';
   isBlackMove: boolean;
   blackTime: number;
   whiteTime: number;
-  position: "top" | "bottom"; // NEW PROP
+  position: 'top' | 'bottom'; // NEW PROP
 }
 
 const Timer: React.FC<TimerProps> = ({
@@ -19,21 +19,16 @@ const Timer: React.FC<TimerProps> = ({
 }) => {
   // Decide which timer to show based on chosen color and position
   const isUserTimer =
-    (chosenPieceColor === "white" && position === "bottom") ||
-    (chosenPieceColor === "black" && position === "bottom");
+    (chosenPieceColor === 'white' && position === 'bottom') ||
+    (chosenPieceColor === 'black' && position === 'bottom');
 
-  const player = isUserTimer
-    ? chosenPieceColor
-    : chosenPieceColor === "white"
-    ? "black"
-    : "white";
-  const isTurn = player === "black" ? isBlackMove : !isBlackMove;
-  const time = player === "black" ? blackTime : whiteTime;
+  const player = isUserTimer ? chosenPieceColor : chosenPieceColor === 'white' ? 'black' : 'white';
+  const isTurn = player === 'black' ? isBlackMove : !isBlackMove;
+  const time = player === 'black' ? blackTime : whiteTime;
 
   return (
-    <div className={isTurn ? styles.blinkingTimer : ""}>
-      <strong>{player.charAt(0).toUpperCase() + player.slice(1)}:</strong>{" "}
-      {formatTime(time)}
+    <div className={isTurn ? styles.blinkingTimer : ''}>
+      <strong>{player.charAt(0).toUpperCase() + player.slice(1)}:</strong> {formatTime(time)}
     </div>
   );
 };

@@ -4,8 +4,8 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  font-family: "Trebuchet MS", "Lucida Sans Unicode", "Lucida Grande",
-    "Lucida Sans", Arial, sans-serif;
+  font-family:
+    'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
 
   .header {
     font-weight: bolder;
@@ -14,7 +14,7 @@
   .choosePieceColor {
     display: flex;
     flex-direction: column;
-    .choosePieceColorText{
+    .choosePieceColorText {
       text-align: center;
     }
     .button {

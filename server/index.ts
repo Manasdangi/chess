@@ -28,40 +28,80 @@ const io = new Server(server, {
 // Store active room IDs and their creators
 export const activeRooms = new Set<string>();
 const roomCreators = new Map<string, string>();
+const roomPlayerCount = new Map<string, number>();
+const roomPlayers = new Map<string, string[]>();
 
 io.on("connection", (socket) => {
   console.log(`🔌 Client connected: ${socket.id}`);
 
   socket.on("checkRoom", (roomId: string, callback: (exists: boolean) => void) => {
-    callback(activeRooms.has(roomId));
+    const exists = activeRooms.has(roomId);
+    if(!exists) {
+      console.log("room does not exist");
+      callback(false);
+    } else {
+      console.log("room exists");
+      callback(true);
+    }
   });
 
-  socket.on("joinRoom", (roomId: string, isCreator: boolean = false) => {
-    console.log("joinRoom", roomId, isCreator);
-    socket.join(roomId);
-    activeRooms.add(roomId);
+  socket.on("joinRoom", (roomId: string) => {
+    console.log("joinRoom", roomId);
     
-    console.log("isCreator", isCreator);
-    if (isCreator) {
-      console.log(`👥 ${socket.id} is the creator of room ${roomId}`);
-      roomCreators.set(roomId, socket.id);
-    }
+    const currentCount = roomPlayerCount.get(roomId) || 0;
+    const currentPlayers = roomPlayers.get(roomId) || [];
     
-    // Get the number of players in the room before this player joined
-    const room = io.sockets.adapter.rooms.get(roomId);
-    
-    const creatorId = roomCreators.get(roomId);
-    const message = 
-       isCreator
-        ? "Room created successfully!"
-        : "Waiting for another player to join...";
-    
-    console.log("creatorId", creatorId);
-    io.to(roomId).emit("playerJoined", { 
-      message,
-      isCreator: socket.id === creatorId,
+    // Handle room full case
+    if (currentCount >= 2) {
+      socket.emit("roomFull", { 
+        message: "Room is full. Maximum 2 players allowed.",
+        userId: socket.id
+      });
+      return;
+    }  
 
+    // Handle already in room case
+    if (currentPlayers.includes(socket.id)) {
+      socket.emit("alreadyInRoom", {
+        message: "You are already in this room",
+        isCreator: currentPlayers[0] === socket.id,
+        playerCount: currentCount,
+        userId: socket.id
+      });
+      return;
+    }
+
+    // Join the room
+    socket.join(roomId);
+    roomPlayers.set(roomId, [...currentPlayers, socket.id]);
+    const newCount = currentCount + 1;
+    roomPlayerCount.set(roomId, newCount);
+    
+    const isCreator = newCount === 1;
+    if (isCreator) {
+      roomCreators.set(roomId, socket.id);
+      activeRooms.add(roomId);
+    }
+
+    // Notify the joining player
+    socket.emit("roomJoined", { 
+      message: isCreator ? "Room created successfully!" : "Joined room successfully!",
+      isCreator,
+      playerCount: newCount,
+      userId: socket.id
     });
+
+    // If second player joined, notify the first player
+    if (newCount === 2) {
+      const firstPlayerId = currentPlayers[0];
+      if (firstPlayerId) {
+        io.to(firstPlayerId).emit("opponentJoined", {
+          message: "Your opponent has joined the room!",
+          playerCount: newCount,
+          userId: firstPlayerId
+        });
+      }
+    }
   });
 
   // Handle moves and send to opponent
@@ -70,13 +110,18 @@ io.on("connection", (socket) => {
     console.log(`🎯 Move in ${roomId} by ${playerId}: ${move.piece} ${move.from} → ${move.to}`);
   });
 
-  // Handle disconnects and clean up
   socket.on("disconnect", () => {
     console.log(`❌ Client disconnected: ${socket.id}`);
     socket.rooms.forEach((room) => {
-      if (room !== socket.id && !io.sockets.adapter.rooms.get(room)) {
-        activeRooms.delete(room);
-        roomCreators.delete(room);
+      if (room !== socket.id) {
+        const count = (roomPlayerCount.get(room) || 1) - 1;
+        roomPlayerCount.set(room, count);
+        if (count === 0) {
+          activeRooms.delete(room);
+          roomCreators.delete(room);
+          roomPlayerCount.delete(room);
+          roomPlayers.delete(room);
+        }
       }
     });
   });

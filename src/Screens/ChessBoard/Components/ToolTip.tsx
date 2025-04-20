@@ -1,5 +1,5 @@
-import styles from "./ToolTip.module.scss";
-import pieceImages, { pieceMap } from "../../../utils/Util";
+import styles from './ToolTip.module.scss';
+import pieceImages, { pieceMap } from '../../../utils/Util';
 
 const ToolTip = ({
   x,
@@ -20,17 +20,17 @@ const ToolTip = ({
     <div
       className={styles.container}
       style={{
-        position: "absolute",
+        position: 'absolute',
         left: x,
         top: y - 18,
-        backgroundColor: "grey",
-        borderRadius: "5px",
-        fontSize: "12px",
-        whiteSpace: "nowrap",
-        transform: "translate(-50%, -100%)", // Center align & position above
+        backgroundColor: 'grey',
+        borderRadius: '5px',
+        fontSize: '12px',
+        whiteSpace: 'nowrap',
+        transform: 'translate(-50%, -100%)', // Center align & position above
       }}
     >
-      {finalArray.map((item) => (
+      {finalArray.map(item => (
         <img
           onClick={() => {
             selectPiece(item);
