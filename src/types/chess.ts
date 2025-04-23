@@ -1,7 +1,11 @@
 export interface Move {
-  from: string;
-  to: string;
-  piece: string;
-  color: 'white' | 'black';
-  promotion?: string;
+  from: {
+    row: number;
+    col: number;
+  };
+  to: {
+    row: number;
+    col: number;
+  };
+  piece: number;
 }

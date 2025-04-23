@@ -21,13 +21,22 @@ const movePiece = (
   let executed = false;
   setValidMoves([[]]);
   setPiecesInAttack([[]]);
+
   socket.emit('move', {
-    roomId: roomId,
+    roomId,
     move: {
-      from: { row: movingPiece.rowIndex, col: movingPiece.colIndex },
-      to: { row: row, col: col },
+      piece: grid[movingPiece.rowIndex][movingPiece.colIndex],
+      from: {
+        row: movingPiece.rowIndex,
+        col: movingPiece.colIndex,
+      },
+      to: {
+        row,
+        col,
+      },
     },
   });
+
   setGrid(prevGrid => {
     let newGrid = prevGrid.map((r: number[]) => [...r]);
     const piece = newGrid[row][col];
@@ -41,6 +50,7 @@ const movePiece = (
     executed = true;
     return newGrid;
   });
+
   const val = grid[movingPiece.rowIndex][movingPiece.colIndex];
   if ((row == 0 || row == 7) && (val == 6 || val == -6)) {
     setShowTooltip(true);

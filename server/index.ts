@@ -90,6 +90,8 @@ io.on("connection", (socket) => {
       playerCount: newCount,
       userId: socket.id
     });
+    
+
 
     // If second player joined, notify the first player
     if (newCount === 2) {
@@ -104,10 +106,13 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("choosePieceColor", (roomId: string, color: string) => {
+    socket.to(roomId).emit("opponentChoosePieceColor", color);
+  });
   // Handle moves and send to opponent
-  socket.on("move", ({ roomId, move, playerId }: { roomId: string; move: Move; playerId: string }) => {
+  socket.on("move", ({ roomId, move }: { roomId: string; move: Move}) =>   {
     socket.to(roomId).emit("opponentMove", move);
-    console.log(`🎯 Move in ${roomId} by ${playerId}: ${move.piece} ${move.from} → ${move.to}`);
+    console.log(`🎯 Move in ${roomId} by ${move.piece > 0 ? "white" : "black"}: ${move.from} → ${move.to}`);
   });
 
   socket.on("disconnect", () => {

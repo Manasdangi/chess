@@ -7,13 +7,12 @@ import pieceImages, { classNames, pieceMap } from '../../utils/Util';
 import { handleSquareClick } from '../../utils/ChessBoardUtils';
 import { blackTopWhiteDown, whiteTopBlackDown } from '../../constants';
 import Timer from './Components/Timer';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import socket from '../../Socket/socket';
-import Popup from '../Home/Popup';
+import { useSocket } from '../../hook/useSocket';
 
 const ChessBoard = () => {
   const { roomId } = useParams();
-  const navigate = useNavigate();
   const [grid, setGrid] = useState<number[][]>([[]]);
   const [chosenPieceColor, setChosenPieceColor] = useState<'white' | 'black' | null>(null);
   const [isBlackMove, setIsBlackMove] = useState(false);
@@ -30,90 +29,29 @@ const ChessBoard = () => {
     rowIndex: -1,
     colIndex: -1,
   });
-  const [whiteTime, setWhiteTime] = useState(600); // 600 seconds = 10 mins
+  const [whiteTime, setWhiteTime] = useState(600);
   const [blackTime, setBlackTime] = useState(600);
   const [intervalId, setIntervalId] = useState<ReturnType<typeof setInterval> | null>(null);
   const [winner, setWinner] = useState<'white' | 'black' | null>(null);
-  const [showPopup, setShowPopup] = useState(false);
-  const [popupMessage, setPopupMessage] = useState('');
-  const [popupType, setPopupType] = useState<'success' | 'error'>('success');
   const [isCreator, setIsCreator] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [playerCount, setPlayerCount] = useState(0);
   const [opponentJoined, setOpponentJoined] = useState(false);
-  const showMessage = (message: string, type: 'success' | 'error' = 'success') => {
-    setPopupMessage(message);
-    setPopupType(type);
-    setShowPopup(true);
-  };
 
-  const handleRoomJoined = (data: {
-    message: string;
-    isCreator: boolean;
-    playerCount: number;
-    userId: string;
-  }) => {
-    console.log('Room joined:', data);
-    showMessage(data.message);
-    setIsCreator(data.isCreator);
-    setPlayerCount(data.playerCount);
-    setUserId(data.userId);
-  };
-
-  const handleOpponentJoined = (data: {
-    message: string;
-    playerCount: number;
-    userId: string;
-  }) => {
-    console.log('Opponent joined:', data);
-    showMessage(data.message);
-    setPlayerCount(data.playerCount);
-    setOpponentJoined(true);
-  };
-
-  const handleRoomFull = (data: { message: string; userId: string }) => {
-    console.log('Room full:', data);
-    showMessage(data.message, 'error');
-  };
-
-  const handleAlreadyInRoom = (data: {
-    message: string;
-    isCreator: boolean;
-    playerCount: number;
-    userId: string;
-  }) => {
-    console.log('Already in room:', data);
-    showMessage(data.message);
-    setIsCreator(data.isCreator);
-    setPlayerCount(data.playerCount);
-    setUserId(data.userId);
-  };
-  
-  useEffect(() => {
-    if (!roomId) {
-      showMessage('No room ID provided', 'error');
-      navigate('/');
-      return;
-    }
-
-    // Set up event listeners
-    socket.on('roomJoined', handleRoomJoined);
-    socket.on('opponentJoined', handleOpponentJoined);
-    socket.on('roomFull', handleRoomFull);
-    socket.on('alreadyInRoom', handleAlreadyInRoom);
-
-    // Join the room
-    socket.emit('joinRoom', roomId);
-
-    // Clean up
-    return () => {
-      socket.off('roomJoined', handleRoomJoined);
-      socket.off('opponentJoined', handleOpponentJoined);
-      socket.off('roomFull', handleRoomFull);
-      socket.off('alreadyInRoom', handleAlreadyInRoom);
-      socket.emit('leaveRoom', roomId);
-    };
-  }, [roomId, navigate]);
+  useSocket(roomId, {
+    onRoomJoined: data => setIsCreator(data.isCreator),
+    onOpponentJoined: () => setOpponentJoined(true),
+    onOpponentChoosePieceColor: color => setChosenPieceColor(color === 'white' ? 'black' : 'white'),
+    onOpponentMove: move => {
+      console.log('Opponent moved:', move);
+      setIsBlackMove(move.piece > 0);
+      //updated the inverted grid with opponent's move
+      setGrid(prevGrid => {
+        const newGrid = prevGrid.map(row => [...row]);
+        newGrid[7 - move.from.row][7 - move.from.col] = 0;
+        newGrid[7 - move.to.row][7 - move.to.col] = move.piece;
+        return newGrid;
+      });
+    },
+  });
 
   useEffect(() => {
     if (!chosenPieceColor) return;
@@ -142,7 +80,6 @@ const ChessBoard = () => {
     }, 1000);
 
     setIntervalId(id);
-
     return () => clearInterval(id);
   }, [isBlackMove, chosenPieceColor]);
 
@@ -152,21 +89,6 @@ const ChessBoard = () => {
     }
   }, [chosenPieceColor]);
 
-  // Handle opponent's moves
-  useEffect(() => {
-    const handleOpponentMove = (move: any) => {
-      console.log('Opponent moved:', move);
-      setIsBlackMove(!isBlackMove);
-    };
-
-    socket.on('opponentMove', handleOpponentMove);
-
-    return () => {
-      socket.off('opponentMove', handleOpponentMove);
-    };
-  }, [isBlackMove]);
-
-  //select piece from tooltip
   const selectPiece = (piece: number) => {
     setValidMoves([[]]);
     setPiecesInAttack([[]]);
@@ -185,9 +107,13 @@ const ChessBoard = () => {
   ) => {
     setCurrentRow(rowIndex);
     setCurrentCol(colIndex);
-    console.log(`Row: ${rowIndex}, Col: ${colIndex}`);
-
-    if (!roomId) return;
+    if (
+      (chosenPieceColor === 'white' && isBlackMove) ||
+      (chosenPieceColor === 'black' && !isBlackMove)
+    ) {
+      alert('It is not your turn');
+      return;
+    }
 
     handleSquareClick(
       e,
@@ -275,23 +201,36 @@ const ChessBoard = () => {
   return (
     <div className={styles.container}>
       <p className={styles.header}>Start Playing</p>
-
       {!chosenPieceColor ? (
         <div className={styles.choosePieceColor}>
-          {opponentJoined ? (
-            isCreator ? (
+          {isCreator ? (
+            opponentJoined ? (
               <>
                 <p className={styles.choosePieceColorText}>Choose your piece color</p>
                 <div className={styles.button}>
-                  <button onClick={() => setChosenPieceColor('black')}>Black</button>
-                  <button onClick={() => setChosenPieceColor('white')}>White</button>
+                  <button
+                    onClick={() => {
+                      setChosenPieceColor('black');
+                      socket.emit('choosePieceColor', roomId, 'black');
+                    }}
+                  >
+                    Black
+                  </button>
+                  <button
+                    onClick={() => {
+                      setChosenPieceColor('white');
+                      socket.emit('choosePieceColor', roomId, 'white');
+                    }}
+                  >
+                    White
+                  </button>
                 </div>
               </>
             ) : (
-              <p className={styles.waitingText}>Waiting for room creator to choose color...</p>
+              <p className={styles.waitingText}>Waiting for another player to join...</p>
             )
           ) : (
-            <p className={styles.waitingText}>Waiting for another player to join...</p>
+            <p className={styles.waitingText}>Waiting for room creator to choose color...</p>
           )}
         </div>
       ) : (
@@ -307,9 +246,6 @@ const ChessBoard = () => {
             <ToolTip x={tooltipX} y={tooltipY} showBlack={isBlackMove} selectPiece={selectPiece} />
           )}
         </>
-      )}
-      {showPopup && (
-        <Popup message={popupMessage} onClose={() => setShowPopup(false)} type={popupType} />
       )}
     </div>
   );
