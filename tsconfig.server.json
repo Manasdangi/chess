@@ -8,10 +8,14 @@
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "outDir": "dist/server",
-    "rootDir": "server",
-    "types": ["node"]
+    "outDir": "dist",
+    "rootDir": ".",
+    "types": ["node", "express", "cors"],
+    "baseUrl": "."
   },
-  "include": ["server/**/*"],
-  "exclude": ["node_modules"]
+  "include": [
+    "server/**/*",
+    "src/types/**/*"
+  ],
+  "exclude": ["node_modules", "dist"]
 } 

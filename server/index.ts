@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
@@ -40,7 +40,7 @@ const roomPlayerCount = new Map<string, number>();
 const roomPlayers = new Map<string, string[]>();
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({ status: 'healthy' });
 });
 
@@ -63,6 +63,7 @@ io.on('connection', socket => {
 
     const currentCount = roomPlayerCount.get(roomId) || 0;
     const currentPlayers = roomPlayers.get(roomId) || [];
+    console.log("currentCount", currentCount);
 
     // Handle room full case
     if (currentCount >= 2) {
