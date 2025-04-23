@@ -7,12 +7,14 @@ import pieceImages, { classNames, pieceMap } from '../../utils/Util';
 import { handleSquareClick } from '../../utils/ChessBoardUtils';
 import { blackTopWhiteDown, whiteTopBlackDown } from '../../constants';
 import Timer from './Components/Timer';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import socket from '../../Socket/socket';
 import { useSocket } from '../../hook/useSocket';
+import { FaHome } from 'react-icons/fa';
 
 const ChessBoard = () => {
   const { roomId } = useParams();
+  const navigate = useNavigate();
   const [grid, setGrid] = useState<number[][]>([[]]);
   const [chosenPieceColor, setChosenPieceColor] = useState<'white' | 'black' | null>(null);
   const [isBlackMove, setIsBlackMove] = useState(false);
@@ -189,6 +191,12 @@ const ChessBoard = () => {
     </div>
   );
 
+  const handleHomeClick = () => {
+    if (window.confirm('Are you sure you want to quit the game?')) {
+      navigate('/');
+    }
+  };
+
   if (winner) {
     return (
       <div className={styles.container}>
@@ -200,7 +208,12 @@ const ChessBoard = () => {
 
   return (
     <div className={styles.container}>
-      <p className={styles.header}>Start Playing</p>
+      <div className={styles.headerContainer}>
+        <p className={styles.header}>Start Playing for Room: {roomId}</p>
+        <button className={styles.homeButton} onClick={handleHomeClick}>
+          <FaHome size={24} />
+        </button>
+      </div>
       {!chosenPieceColor ? (
         <div className={styles.choosePieceColor}>
           {isCreator ? (

@@ -6,6 +6,8 @@
   align-items: center;
   font-family:
     'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+  padding: 20px;
+  position: relative;
 
   .header {
     font-weight: bolder;
@@ -100,4 +102,29 @@
   color: #666;
   text-align: center;
   margin: 1rem 0;
+}
+
+.headerContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 1rem;
+  width: 100%;
+}
+
+.homeButton {
+  cursor: pointer;
+  padding: 0.5rem;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  right: 20px;
+  top: 20px;
+
+  &:hover {
+    background-color: rgba(0, 128, 0, 0.1);
+    transform: scale(1.1);
+  }
 }
