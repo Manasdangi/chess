@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import socket from '../Socket/socket';
-import { Move } from '../types/chess';
+import Move from '../types/chess';
 
 export const useSocket = (
   roomId: string | undefined,
