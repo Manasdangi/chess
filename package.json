@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "dev:server": "NODE_ENV=development NODE_NO_WARNINGS=1 ts-node --esm server/index.ts",
-    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss}\""
+    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss}\"",
+    "postinstall": "tsc"
   },
   "dependencies": {
     "cors": "^2.8.5",

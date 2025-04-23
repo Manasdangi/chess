@@ -4,21 +4,28 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import type { Move } from '../src/types/chess';
 
+const PORT = process.env.PORT || 3001;
+const FRONTEND_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://chess-game-frontend.onrender.com'
+  : 'http://localhost:5173';
+
 // Setup express app
 const app = express();
 
 // Create HTTP server from express app
 const server = createServer(app);
 
-// Create socket.io server with CORS settings
 // Express CORS
-app.use(cors({ origin: '*', credentials: true }));
+app.use(cors({ 
+  origin: FRONTEND_URL,
+  credentials: true 
+}));
 
 // Socket.IO CORS
 const io = new Server(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST'],
+    origin: FRONTEND_URL,
+    methods: ["GET", "POST"],
     credentials: true,
   },
 });
@@ -28,6 +35,11 @@ export const activeRooms = new Set<string>();
 const roomCreators = new Map<string, string>();
 const roomPlayerCount = new Map<string, number>();
 const roomPlayers = new Map<string, string[]>();
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy' });
+});
 
 io.on('connection', socket => {
   console.log(`🔌 Client connected: ${socket.id}`);
@@ -131,6 +143,6 @@ io.on('connection', socket => {
 });
 
 // Start the server
-server.listen(3001, () => {
-  console.log('🚀 Server running on http://localhost:3001');
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });

@@ -137,7 +137,7 @@ const ChessBoard = () => {
       isBlackMove,
       setIsBlackMove,
       chosenPieceColor === 'white',
-      roomId
+      roomId || ''
     );
   };
 

@@ -1,0 +1,26 @@
+services:
+  # Frontend Service
+  - type: web
+    name: chess-game-frontend
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_SOCKET_URL
+        value: https://chess-game-backend.onrender.com
+
+  # Backend Service
+  - type: web
+    name: chess-game-backend
+    env: node
+    buildCommand: npm install
+    startCommand: node server/index.ts
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001 
