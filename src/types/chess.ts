@@ -1,4 +1,4 @@
-export interface Move {
+export default interface Move {
   from: {
     row: number;
     col: number;

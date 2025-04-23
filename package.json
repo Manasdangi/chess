@@ -6,11 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "start": "node dist/server/index.js",
+    "build:server": "tsc -p tsconfig.server.json",
     "lint": "eslint .",
     "preview": "vite preview",
     "dev:server": "NODE_ENV=development NODE_NO_WARNINGS=1 ts-node --esm server/index.ts",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss}\"",
-    "postinstall": "tsc"
+    "postinstall": "npm run build:server"
   },
   "dependencies": {
     "cors": "^2.8.5",

@@ -2,12 +2,13 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import type { Move } from '../src/types/chess';
+import Move from '../src/types/chess';
 
 const PORT = process.env.PORT || 3001;
-const FRONTEND_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://chess-game-frontend.onrender.com'
-  : 'http://localhost:5173';
+const FRONTEND_URL =
+  process.env.NODE_ENV === 'production'
+    ? 'https://chess-game-frontend.onrender.com'
+    : 'http://localhost:5173';
 
 // Setup express app
 const app = express();
@@ -16,16 +17,18 @@ const app = express();
 const server = createServer(app);
 
 // Express CORS
-app.use(cors({ 
-  origin: FRONTEND_URL,
-  credentials: true 
-}));
+app.use(
+  cors({
+    origin: FRONTEND_URL,
+    credentials: true,
+  })
+);
 
 // Socket.IO CORS
 const io = new Server(server, {
   cors: {
     origin: FRONTEND_URL,
-    methods: ["GET", "POST"],
+    methods: ['GET', 'POST'],
     credentials: true,
   },
 });
