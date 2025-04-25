@@ -13,6 +13,8 @@ const movePiece = (
   setGrid: React.Dispatch<React.SetStateAction<number[][]>>,
   setValidMoves: React.Dispatch<React.SetStateAction<number[][]>>,
   setPiecesInAttack: React.Dispatch<React.SetStateAction<number[][]>>,
+  blackScore: number[],
+  whiteScore: number[],
   setBlackScore: React.Dispatch<React.SetStateAction<number[]>>,
   setWhiteScore: React.Dispatch<React.SetStateAction<number[]>>,
   setShowTooltip: React.Dispatch<React.SetStateAction<boolean>>,
@@ -42,8 +44,19 @@ const movePiece = (
     const piece = newGrid[row][col];
 
     if (!executed) {
-      setBlackScore(prev => (piece > 0 ? [...prev, piece] : prev));
-      setWhiteScore(prev => (piece < 0 ? [...prev, piece] : prev));
+      const updatedBlackScore = piece > 0 ? [...blackScore, piece] : blackScore;
+      const updatedWhiteScore = piece < 0 ? [...whiteScore, piece] : whiteScore;
+      socket.emit(
+        'updateOpponentScore',
+        roomId,
+        piece > 0 ? updatedBlackScore : updatedWhiteScore,
+        piece > 0 ? 'black' : 'white'
+      );
+      if (piece > 0) {
+        setBlackScore(updatedBlackScore);
+      } else if (piece < 0) {
+        setWhiteScore(updatedWhiteScore);
+      }
     }
     newGrid[row][col] = prevGrid[movingPiece.rowIndex][movingPiece.colIndex];
     newGrid[movingPiece.rowIndex][movingPiece.colIndex] = 0;
@@ -249,6 +262,8 @@ export const handleSquareClick = (
   setValidMoves: React.Dispatch<React.SetStateAction<number[][]>>,
   piecesInAttack: number[][],
   setPiecesInAttack: React.Dispatch<React.SetStateAction<number[][]>>,
+  blackScore: number[],
+  whiteScore: number[],
   setBlackScore: React.Dispatch<React.SetStateAction<number[]>>,
   setWhiteScore: React.Dispatch<React.SetStateAction<number[]>>,
   setTooltipX: React.Dispatch<React.SetStateAction<number>>,
@@ -280,6 +295,8 @@ export const handleSquareClick = (
       setGrid,
       setValidMoves,
       setPiecesInAttack,
+      blackScore,
+      whiteScore,
       setBlackScore,
       setWhiteScore,
       setShowTooltip,

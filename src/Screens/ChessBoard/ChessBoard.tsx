@@ -43,7 +43,6 @@ const ChessBoard = () => {
     onOpponentJoined: () => setOpponentJoined(true),
     onOpponentChoosePieceColor: color => setChosenPieceColor(color === 'white' ? 'black' : 'white'),
     onOpponentMove: move => {
-      console.log('Opponent moved:', move);
       setIsBlackMove(move.piece > 0);
       //updated the inverted grid with opponent's move
       setGrid(prevGrid => {
@@ -52,6 +51,9 @@ const ChessBoard = () => {
         newGrid[7 - move.to.row][7 - move.to.col] = move.piece;
         return newGrid;
       });
+    },
+    onOpponentScore: (score, color) => {
+      color === 'white' ? setWhiteScore(score) : setBlackScore(score);
     },
   });
 
@@ -129,6 +131,8 @@ const ChessBoard = () => {
       setValidMoves,
       piecesInAttack,
       setPiecesInAttack,
+      blackScore,
+      whiteScore,
       setBlackScore,
       setWhiteScore,
       setTooltipX,

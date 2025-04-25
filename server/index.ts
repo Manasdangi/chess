@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import Move from '../src/types/chess';
+import { Move } from '../src/types/chess';
 
 const PORT = process.env.PORT || 3001;
 const FRONTEND_URL =
@@ -47,6 +47,7 @@ app.get('/health', (req: Request, res: Response) => {
 io.on('connection', socket => {
   console.log(`🔌 Client connected: ${socket.id}`);
 
+  //
   socket.on('checkRoom', (roomId: string, callback: (exists: boolean) => void) => {
     const exists = activeRooms.has(roomId);
     if (!exists) {
@@ -58,12 +59,13 @@ io.on('connection', socket => {
     }
   });
 
+  // Join a room
   socket.on('joinRoom', (roomId: string) => {
     console.log('joinRoom', roomId);
 
     const currentCount = roomPlayerCount.get(roomId) || 0;
     const currentPlayers = roomPlayers.get(roomId) || [];
-    console.log("currentCount", currentCount);
+    console.log('currentCount', currentCount);
 
     // Handle room full case
     if (currentCount >= 2) {
@@ -85,7 +87,6 @@ io.on('connection', socket => {
       return;
     }
 
-    // Join the room
     socket.join(roomId);
     roomPlayers.set(roomId, [...currentPlayers, socket.id]);
     const newCount = currentCount + 1;
@@ -121,6 +122,12 @@ io.on('connection', socket => {
   socket.on('choosePieceColor', (roomId: string, color: string) => {
     socket.to(roomId).emit('opponentChoosePieceColor', color);
   });
+
+  socket.on('updateOpponentScore', (roomId: string, score: number[], color: string) => {
+    console.log('updateOpponentScore', roomId, score, color);
+    socket.to(roomId).emit('newOpponentScore', score, color);
+  });
+
   // Handle moves and send to opponent
   socket.on('move', ({ roomId, move }: { roomId: string; move: Move }) => {
     socket.to(roomId).emit('opponentMove', move);
