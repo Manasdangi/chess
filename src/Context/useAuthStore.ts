@@ -16,7 +16,6 @@ interface AuthStore {
   isLoggedIn: boolean;
   user: AuthUser | null;
   history: HistoryEntry[];
-
   setLoggedIn: (value: boolean) => void;
   setUser: (user: AuthUser | null) => void;
   addToHistory: (entry: HistoryEntry) => void;
@@ -35,12 +34,11 @@ const useAuthStore = create<AuthStore>(set => ({
   setLoggedIn: value =>
     set(state => {
       const newState = { ...state, isLoggedIn: value };
-      // only update login status and user when login changes
       localStorage.setItem('auth-store', JSON.stringify({ isLoggedIn: value, user: state.user }));
       return newState;
     }),
 
-  setUser: user => set({ user }), // No need to save on every user update
+  setUser: user => set({ user }),
 
   addToHistory: entry => set(state => ({ history: [...state.history, entry] })), // No localStorage update here
 

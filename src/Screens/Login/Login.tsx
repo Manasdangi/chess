@@ -9,7 +9,6 @@ const Login: React.FC = () => {
   // Accessing Zustand store methods
   const setUser = useAuthStore(state => state.setUser);
   const setLoggedIn = useAuthStore(state => state.setLoggedIn);
-  const addToHistory = useAuthStore(state => state.addToHistory);
 
   const handleGoogleLogin = async () => {
     try {
@@ -18,9 +17,6 @@ const Login: React.FC = () => {
 
       if (result.user) {
         const user = result.user;
-        console.log('User signed in:', user);
-
-        // Store user information in Firestore
         await setDoc(
           doc(db, 'users', user.uid),
           {
@@ -41,13 +37,6 @@ const Login: React.FC = () => {
           photoURL: user.photoURL,
         });
         setLoggedIn(true);
-
-        // Add a history entry for the login action
-        addToHistory({
-          action: 'Logged In',
-          time: new Date(),
-        });
-
         alert(`Welcome ${user.displayName}!`);
       }
     } catch (error) {
