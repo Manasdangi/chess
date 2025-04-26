@@ -6,11 +6,27 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
+  gap: 1.5rem; /* Increased gap for better spacing */
   padding: 2rem;
   text-align: center;
   width: 100%;
   max-width: 500px;
+  background-color: #e3dcdc; /* Light background for better contrast */
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.userInfo {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 1.5rem; /* Add space below the username */
+}
+
+.title {
+  font-size: 2rem;
+  color: #333;
+  margin-bottom: 1.5rem; /* Space below the title */
 }
 
 .inputContainer {
@@ -18,8 +34,8 @@
   gap: 0.5rem;
   width: 100%;
   padding: 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  border: 1px solid #1b1010;
+  border-radius: 8px; /* Rounded corners for input box */
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
 
@@ -63,6 +79,7 @@ button {
   font-size: 1rem;
   transition: background-color 0.2s;
   min-width: 100px;
+  margin-top: 1rem; /* Space between input and button */
 
   &:hover {
     background-color: #45a049;
@@ -70,7 +87,7 @@ button {
 }
 
 .divider {
-  margin: 1rem 0;
+  margin: 1.5rem 0;
   color: #666;
   font-size: 0.9rem;
   width: 100%;

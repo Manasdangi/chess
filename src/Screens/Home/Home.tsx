@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import socket from '../../Socket/socket';
 import styles from './Home.module.scss';
 import Popup from './Popup';
+import useAuthStore from '../../Context/useAuthStore';
+import Login from '../Login/Login';
 
 export default function Home() {
   const [roomId, setRoomId] = useState('');
@@ -11,6 +13,8 @@ export default function Home() {
   const [popupMessage, setPopupMessage] = useState('');
   const [popupType, setPopupType] = useState<'success' | 'error'>('success');
   const navigate = useNavigate();
+
+  const { isLoggedIn, user } = useAuthStore();
 
   const showMessage = (message: string, type: 'success' | 'error' = 'success') => {
     setPopupMessage(message);
@@ -27,7 +31,6 @@ export default function Home() {
     socket.emit('checkRoom', roomId, (exists: boolean) => {
       if (exists) {
         console.log('joining room', roomId);
-        console.log('joinRoom', roomId);
         showMessage('Joining room...');
         navigate(`/room/${roomId}`);
       } else {
@@ -50,9 +53,13 @@ export default function Home() {
     });
   };
 
+  if (!isLoggedIn) return <Login />;
+
   return (
     <div className={styles.container}>
-      <h2>Play Chess Online</h2>
+      {/* User's name at the top */}
+      <h3 className={styles.userInfo}>Welcome, {user?.displayName}</h3>
+      <h2 className={styles.title}>Play Chess Online</h2>
       <div className={styles.inputContainer}>
         <input
           placeholder="Enter Room ID"

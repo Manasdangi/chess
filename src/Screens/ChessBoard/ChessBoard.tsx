@@ -31,8 +31,8 @@ const ChessBoard = () => {
     rowIndex: -1,
     colIndex: -1,
   });
-  const [whiteTime, setWhiteTime] = useState(600);
-  const [blackTime, setBlackTime] = useState(600);
+  const [whiteTime, setWhiteTime] = useState(60);
+  const [blackTime, setBlackTime] = useState(60);
   const [intervalId, setIntervalId] = useState<ReturnType<typeof setInterval> | null>(null);
   const [winner, setWinner] = useState<'white' | 'black' | null>(null);
   const [isCreator, setIsCreator] = useState(false);
