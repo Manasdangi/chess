@@ -79,7 +79,6 @@ button {
   font-size: 1rem;
   transition: background-color 0.2s;
   min-width: 100px;
-  margin-top: 1rem; /* Space between input and button */
 
   &:hover {
     background-color: #45a049;
@@ -133,4 +132,11 @@ button {
     transform: translateX(0);
     opacity: 1;
   }
+}
+
+.menuButton {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background-color: #73b790;
 }

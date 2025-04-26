@@ -5,6 +5,8 @@ import styles from './Home.module.scss';
 import Popup from './Popup';
 import useAuthStore from '../../Context/useAuthStore';
 import Login from '../Login/Login';
+import { GiHamburgerMenu } from 'react-icons/gi';
+import RightSideMenu from '../../Components/RightMenu';
 
 export default function Home() {
   const [roomId, setRoomId] = useState('');
@@ -12,6 +14,7 @@ export default function Home() {
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState('');
   const [popupType, setPopupType] = useState<'success' | 'error'>('success');
+  const [showMenu, setShowMenu] = useState(false);
   const navigate = useNavigate();
 
   const { isLoggedIn, user } = useAuthStore();
@@ -56,27 +59,34 @@ export default function Home() {
   if (!isLoggedIn) return <Login />;
 
   return (
-    <div className={styles.container}>
-      {/* User's name at the top */}
-      <h3 className={styles.userInfo}>Welcome, {user?.displayName}</h3>
-      <h2 className={styles.title}>Play Chess Online</h2>
-      <div className={styles.inputContainer}>
-        <input
-          placeholder="Enter Room ID"
-          value={roomId}
-          onChange={e => {
-            setRoomId(e.target.value);
-            setError('');
-          }}
-        />
-        <button onClick={handleJoin}>Join Game</button>
+    <>
+      <div className={styles.container}>
+        <h3 className={styles.userInfo}>Welcome, {user?.displayName}</h3>
+        <h2 className={styles.title}>Play Chess Online</h2>
+        <div className={styles.inputContainer}>
+          <input
+            placeholder="Enter Room ID"
+            value={roomId}
+            onChange={e => {
+              setRoomId(e.target.value);
+              setError('');
+            }}
+          />
+          <button onClick={handleJoin}>Join Game</button>
+        </div>
+        {error && <div className={styles.error}>{error}</div>}
+        <div className={styles.divider}>OR</div>
+        <button onClick={handleCreate}>Create New Game</button>
+        {showPopup && (
+          <Popup message={popupMessage} onClose={() => setShowPopup(false)} type={popupType} />
+        )}
       </div>
-      {error && <div className={styles.error}>{error}</div>}
-      <div className={styles.divider}>OR</div>
-      <button onClick={handleCreate}>Create New Game</button>
-      {showPopup && (
-        <Popup message={popupMessage} onClose={() => setShowPopup(false)} type={popupType} />
-      )}
-    </div>
+      <div>
+        <button className={styles.menuButton} onClick={() => setShowMenu(true)}>
+          <GiHamburgerMenu size={20} />
+        </button>
+      </div>
+      {showMenu && <RightSideMenu onClose={() => setShowMenu(false)} />}
+    </>
   );
 }
