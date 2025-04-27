@@ -10,15 +10,12 @@
     "forceConsistentCasingInFileNames": true,
     "outDir": "dist",
     "rootDir": ".",
-    "types": ["node", "express", "cors"],
+    "types": ["node", "express", "cors", "vite/client"],
     "baseUrl": ".",
     "resolveJsonModule": true,
     "noEmit": false,
     "emitDeclarationOnly": false
   },
-  "include": [
-    "server/**/*",
-    "src/types/**/*"
-  ],
+  "include": ["server/**/*", "src/types/**/*"],
   "exclude": ["node_modules", "dist"]
-} 
+}
