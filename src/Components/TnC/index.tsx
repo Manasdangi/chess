@@ -3,12 +3,12 @@ import styles from './TnC.module.scss';
 import CrossButton from '../CrossButton';
 
 interface IProps {
-  close: () => void;
+  onClose: () => void;
 }
-const TnC: React.FC<IProps> = ({ close }) => {
+const TnC: React.FC<IProps> = ({ onClose }) => {
   return (
     <div className={styles.tncPage}>
-      <CrossButton onClick={close} />
+      <CrossButton onClick={onClose} />
       <h2>Terms & Conditions</h2>
       <div className={styles.content}>
         <p>

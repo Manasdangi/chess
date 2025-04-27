@@ -43,7 +43,13 @@ const RightSideMenu: React.FC<RightSideMenuProps> = ({ onClose }) => {
           />
         );
       case 'tnc':
-        return <TnC />;
+        return (
+          <TnC
+            onClose={() => {
+              setActivePage(null);
+            }}
+          />
+        );
       default:
         return (
           <div className={styles.accountSection}>
