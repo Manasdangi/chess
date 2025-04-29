@@ -35,6 +35,8 @@ const Login: React.FC = () => {
           email: user.email,
           displayName: user.displayName,
           photoURL: user.photoURL,
+          createdAt: new Date(),
+          userHistory: [],
         });
         setLoggedIn(true);
         alert(`Welcome ${user.displayName}!`);
