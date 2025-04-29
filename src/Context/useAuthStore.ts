@@ -1,8 +1,11 @@
 import { create } from 'zustand';
 
 export interface HistoryEntry {
-  action: string;
-  time: Date;
+  timestamp: Date;
+  gameId: string;
+  chosenColor: string;
+  opponentEmail: string;
+  result: string;
 }
 
 export interface AuthUser {
@@ -10,15 +13,15 @@ export interface AuthUser {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
+  createdAt: Date;
+  userHistory: HistoryEntry[];
 }
 
 interface AuthStore {
   isLoggedIn: boolean;
   user: AuthUser | null;
-  history: HistoryEntry[];
   setLoggedIn: (value: boolean) => void;
   setUser: (user: AuthUser | null) => void;
-  addToHistory: (entry: HistoryEntry) => void;
   logout: () => void;
 }
 
@@ -30,18 +33,13 @@ const useAuthStore = create<AuthStore>(set => ({
   isLoggedIn: parsedState?.isLoggedIn || false,
   user: parsedState?.user || null,
   history: [], // we don't persist history
-
   setLoggedIn: value =>
     set(state => {
       const newState = { ...state, isLoggedIn: value };
       localStorage.setItem('auth-store', JSON.stringify({ isLoggedIn: value, user: state.user }));
       return newState;
     }),
-
   setUser: user => set({ user }),
-
-  addToHistory: entry => set(state => ({ history: [...state.history, entry] })), // No localStorage update here
-
   logout: () =>
     set(() => {
       const newState = { isLoggedIn: false, user: null };

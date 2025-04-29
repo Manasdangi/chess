@@ -18,7 +18,7 @@
     "allowJs": true,
     "esModuleInterop": true,
     "typeRoots": ["./node_modules/@types", "./src/types"],
-    "types": ["vite/client"]
+    "types": ["vite/client", "node"]
   },
   "include": ["src", "src/types"]
 }

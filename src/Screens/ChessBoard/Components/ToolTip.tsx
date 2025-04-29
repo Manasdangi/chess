@@ -35,6 +35,7 @@ const ToolTip = ({
           onClick={() => {
             selectPiece(item);
           }}
+          key={item}
           src={pieceImages[pieceMap[item]]}
           width="40"
           height="40"

@@ -10,6 +10,8 @@ export const useSocket = (
     onOpponentChoosePieceColor: (color: 'white' | 'black') => void;
     onOpponentMove: (move: Move) => void;
     onOpponentScore: (score: number[], color: string) => void;
+    onOpponentResign: (email: string) => void;
+    onOpponentTimeout: (email: string) => void;
   }
 ) => {
   useEffect(() => {
@@ -21,6 +23,8 @@ export const useSocket = (
       onOpponentChoosePieceColor,
       onOpponentMove,
       onOpponentScore,
+      onOpponentResign,
+      onOpponentTimeout,
     } = callbacks;
 
     socket.on('roomJoined', onRoomJoined);
@@ -28,7 +32,8 @@ export const useSocket = (
     socket.on('opponentChoosePieceColor', onOpponentChoosePieceColor);
     socket.on('newOpponentScore', onOpponentScore);
     socket.on('opponentMove', onOpponentMove);
-
+    socket.on('opponentResign', onOpponentResign);
+    socket.on('opponentTimeout', onOpponentTimeout);
     socket.emit('joinRoom', roomId);
 
     return () => {
@@ -37,7 +42,8 @@ export const useSocket = (
       socket.off('opponentChoosePieceColor', onOpponentChoosePieceColor);
       socket.off('opponentMove', onOpponentMove);
       socket.off('newOpponentScore', onOpponentScore);
-      socket.emit('leaveRoom', roomId);
+      socket.off('opponentResign', onOpponentResign);
+      socket.off('opponentTimeout', onOpponentTimeout);
     };
   }, [roomId, callbacks]);
 };

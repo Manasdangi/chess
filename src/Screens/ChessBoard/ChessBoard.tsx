@@ -1,6 +1,6 @@
 // ChessBoard.tsx
 import styles from './ChessBoard.module.scss';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import RenderPieces from './Components/RenderPieces';
 import ToolTip from './Components/ToolTip';
 import pieceImages, { classNames, pieceMap } from '../../utils/Util';
@@ -11,20 +11,31 @@ import { useParams, useNavigate } from 'react-router-dom';
 import socket from '../../Socket/socket';
 import { useSocket } from '../../hook/useSocket';
 import { FaHome } from 'react-icons/fa';
+import useAuthStore from '../../Context/useAuthStore';
 
 const ChessBoard = () => {
+  const { user } = useAuthStore();
   const { roomId } = useParams();
   const navigate = useNavigate();
   const [grid, setGrid] = useState<number[][]>([[]]);
   const [chosenPieceColor, setChosenPieceColor] = useState<'white' | 'black' | null>(null);
+  const [opponentEmail, setOpponentEmail] = useState<string | null>(null);
   const [isBlackMove, setIsBlackMove] = useState(false);
-  const [currentRow, setCurrentRow] = useState(0);
-  const [currentCol, setCurrentCol] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState({
+    rowIndex: 0,
+    colIndex: 0,
+  });
+  // Tooltip position
   const [tooltipX, setTooltipX] = useState(0);
   const [tooltipY, setTooltipY] = useState(0);
   const [showTooltip, setShowTooltip] = useState(false);
+
+  // Captured pieces
   const [blackScore, setBlackScore] = useState<number[]>([]);
   const [whiteScore, setWhiteScore] = useState<number[]>([]);
+
+  // Valid moves and pieces in attack
+  // These are used to highlight valid moves and pieces in attack
   const [validMoves, setValidMoves] = useState<number[][]>([[]]);
   const [piecesInAttack, setPiecesInAttack] = useState<number[][]>([[]]);
   const [movingPiece, setMovingPiece] = useState({
@@ -33,7 +44,6 @@ const ChessBoard = () => {
   });
   const [whiteTime, setWhiteTime] = useState(60);
   const [blackTime, setBlackTime] = useState(60);
-  const [intervalId, setIntervalId] = useState<ReturnType<typeof setInterval> | null>(null);
   const [winner, setWinner] = useState<'white' | 'black' | null>(null);
   const [isCreator, setIsCreator] = useState(false);
   const [opponentJoined, setOpponentJoined] = useState(false);
@@ -44,7 +54,6 @@ const ChessBoard = () => {
     onOpponentChoosePieceColor: color => setChosenPieceColor(color === 'white' ? 'black' : 'white'),
     onOpponentMove: move => {
       setIsBlackMove(move.piece > 0);
-      //updated the inverted grid with opponent's move
       setGrid(prevGrid => {
         const newGrid = prevGrid.map(row => [...row]);
         newGrid[7 - move.from.row][7 - move.from.col] = 0;
@@ -55,27 +64,48 @@ const ChessBoard = () => {
     onOpponentScore: (score, color) => {
       color === 'white' ? setWhiteScore(score) : setBlackScore(score);
     },
+    onOpponentResign: email => {
+      alert('Opponent resigned, You win!');
+      setOpponentEmail(email);
+      setWinner(chosenPieceColor === 'white' ? 'white' : 'black');
+    },
+    onOpponentTimeout: email => {
+      alert('Opponent timed out, You win!');
+      setOpponentEmail(email);
+      setWinner(chosenPieceColor === 'white' ? 'white' : 'black');
+    },
   });
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!chosenPieceColor) return;
-    if (intervalId) clearInterval(intervalId);
-
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+    console.log('console', opponentEmail, getSelfColor());
     const id = setInterval(() => {
       if (isBlackMove) {
         setBlackTime(prev => {
-          if (prev <= 1) {
+          if (prev < 1) {
             clearInterval(id);
+            intervalRef.current = null;
             setWinner('white');
+            if (chosenPieceColor === 'black') {
+              socket.emit('onOpponentTimeout', roomId, user?.email);
+            }
             return 0;
           }
           return prev - 1;
         });
       } else {
         setWhiteTime(prev => {
-          if (prev <= 1) {
+          if (prev < 1) {
             clearInterval(id);
+            intervalRef.current = null;
             setWinner('black');
+            if (chosenPieceColor === 'white') {
+              socket.emit('onOpponentTimeout', roomId, user?.email);
+            }
             return 0;
           }
           return prev - 1;
@@ -83,7 +113,7 @@ const ChessBoard = () => {
       }
     }, 1000);
 
-    setIntervalId(id);
+    intervalRef.current = id;
     return () => clearInterval(id);
   }, [isBlackMove, chosenPieceColor]);
 
@@ -98,19 +128,41 @@ const ChessBoard = () => {
     setPiecesInAttack([[]]);
     setGrid(prevGrid => {
       const newGrid = prevGrid.map(row => [...row]);
-      newGrid[currentRow][currentCol] = piece;
+      newGrid[currentIndex.rowIndex][currentIndex.colIndex] = piece;
       return newGrid;
     });
     setShowTooltip(false);
   };
+
+  const getSelfColor = () => {
+    if (chosenPieceColor === 'white') {
+      return isBlackMove ? 'black' : 'white';
+    } else {
+      return isBlackMove ? 'white' : 'black';
+    }
+  };
+
+  const isKingKilled = () => {
+    console.log('check', whiteScore, blackScore);
+    if (isBlackMove) {
+      return whiteScore.includes(1);
+    }
+    return blackScore.includes(1);
+  };
+
+  useEffect(() => {
+    if (isKingKilled()) {
+      alert('King is killed, You lose!');
+      setWinner(chosenPieceColor === 'white' ? 'black' : 'white');
+    }
+  }, [blackScore, whiteScore]);
 
   const onSquareClick = (
     e: React.MouseEvent<HTMLDivElement, MouseEvent>,
     rowIndex: number,
     colIndex: number
   ) => {
-    setCurrentRow(rowIndex);
-    setCurrentCol(colIndex);
+    setCurrentIndex({ rowIndex, colIndex });
     if (
       (chosenPieceColor === 'white' && isBlackMove) ||
       (chosenPieceColor === 'black' && !isBlackMove)
@@ -197,6 +249,7 @@ const ChessBoard = () => {
 
   const handleHomeClick = () => {
     if (window.confirm('Are you sure you want to quit the game?')) {
+      socket.emit('resign', roomId, user?.email);
       navigate('/');
     }
   };
@@ -267,5 +320,4 @@ const ChessBoard = () => {
     </div>
   );
 };
-
 export default ChessBoard;

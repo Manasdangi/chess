@@ -9,6 +9,7 @@ const movePiece = (
   grid: number[][],
   row: number,
   col: number,
+  currentPiece: number,
   movingPiece: { rowIndex: number; colIndex: number },
   setGrid: React.Dispatch<React.SetStateAction<number[][]>>,
   setValidMoves: React.Dispatch<React.SetStateAction<number[][]>>,
@@ -65,7 +66,13 @@ const movePiece = (
   });
 
   const val = grid[movingPiece.rowIndex][movingPiece.colIndex];
-  if ((row == 0 || row == 7) && (val == 6 || val == -6)) {
+  console.log('val', val, currentPiece);
+  if (
+    (row == 0 || row == 7) &&
+    (val == 6 || val == -6) &&
+    currentPiece != 1 &&
+    currentPiece != -1
+  ) {
     setShowTooltip(true);
   }
 };
@@ -287,10 +294,12 @@ export const handleSquareClick = (
     setTooltipX(event.clientX);
     setTooltipY(event.clientY);
     setIsBlackMove(prev => !prev);
+    const currentPiece = grid[row][col];
     movePiece(
       grid,
       row,
       col,
+      currentPiece,
       movingPiece,
       setGrid,
       setValidMoves,
