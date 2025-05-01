@@ -95,7 +95,6 @@ const ChessBoard = () => {
       },
       onAlreadyInRoom: () => {
         alert('You are already in this room');
-        navigate('/');
       },
     }),
     [chosenPieceColor, navigate]
