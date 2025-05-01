@@ -4,14 +4,17 @@ import { Move } from '../types/chess';
 
 export const useSocket = (
   roomId: string | undefined,
+  userId: string,
   callbacks: {
     onRoomJoined: (data: { isCreator: boolean }) => void;
     onOpponentJoined: () => void;
     onOpponentChoosePieceColor: (color: 'white' | 'black') => void;
     onOpponentMove: (move: Move) => void;
-    onOpponentScore: (score: number[], color: string) => void;
+    onOpponentScore: (score: number[], color: 'white' | 'black') => void;
     onOpponentResign: (email: string) => void;
     onOpponentTimeout: (email: string) => void;
+    onRoomFull: () => void;
+    onAlreadyInRoom: () => void;
   }
 ) => {
   useEffect(() => {
@@ -25,6 +28,8 @@ export const useSocket = (
       onOpponentScore,
       onOpponentResign,
       onOpponentTimeout,
+      onRoomFull,
+      onAlreadyInRoom,
     } = callbacks;
 
     socket.on('roomJoined', onRoomJoined);
@@ -34,7 +39,10 @@ export const useSocket = (
     socket.on('opponentMove', onOpponentMove);
     socket.on('opponentResign', onOpponentResign);
     socket.on('opponentTimeout', onOpponentTimeout);
-    socket.emit('joinRoom', roomId);
+    socket.on('roomFull', onRoomFull);
+    socket.on('alreadyInRoom', onAlreadyInRoom);
+    console.log('test Joining room:', roomId);
+    socket.emit('joinRoom', roomId, userId);
 
     return () => {
       socket.off('roomJoined', onRoomJoined);
@@ -44,6 +52,8 @@ export const useSocket = (
       socket.off('newOpponentScore', onOpponentScore);
       socket.off('opponentResign', onOpponentResign);
       socket.off('opponentTimeout', onOpponentTimeout);
+      socket.off('alreadyInRoom', onAlreadyInRoom);
+      socket.off('roomFull', onRoomFull);
     };
   }, [roomId, callbacks]);
 };

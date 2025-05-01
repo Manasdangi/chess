@@ -1,6 +1,6 @@
 // ChessBoard.tsx
 import styles from './ChessBoard.module.scss';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import RenderPieces from './Components/RenderPieces';
 import ToolTip from './Components/ToolTip';
 import pieceImages, { classNames, pieceMap } from '../../utils/Util';
@@ -12,7 +12,19 @@ import socket from '../../Socket/socket';
 import { useSocket } from '../../hook/useSocket';
 import { FaHome } from 'react-icons/fa';
 import useAuthStore from '../../Context/useAuthStore';
+import { Move } from '../../types/chess';
 
+interface EventHandlers {
+  onRoomJoined: (data: { isCreator: boolean }) => void;
+  onOpponentJoined: () => void;
+  onOpponentChoosePieceColor: (color: 'white' | 'black') => void;
+  onOpponentMove: (move: Move) => void;
+  onOpponentScore: (score: number[], color: 'white' | 'black') => void;
+  onOpponentResign: (email: string) => void;
+  onOpponentTimeout: (email: string) => void;
+  onRoomFull: () => void;
+  onAlreadyInRoom: () => void;
+}
 const ChessBoard = () => {
   const { user } = useAuthStore();
   const { roomId } = useParams();
@@ -48,33 +60,49 @@ const ChessBoard = () => {
   const [isCreator, setIsCreator] = useState(false);
   const [opponentJoined, setOpponentJoined] = useState(false);
 
-  useSocket(roomId, {
-    onRoomJoined: data => setIsCreator(data.isCreator),
-    onOpponentJoined: () => setOpponentJoined(true),
-    onOpponentChoosePieceColor: color => setChosenPieceColor(color === 'white' ? 'black' : 'white'),
-    onOpponentMove: move => {
-      setIsBlackMove(move.piece > 0);
-      setGrid(prevGrid => {
-        const newGrid = prevGrid.map(row => [...row]);
-        newGrid[7 - move.from.row][7 - move.from.col] = 0;
-        newGrid[7 - move.to.row][7 - move.to.col] = move.piece;
-        return newGrid;
-      });
-    },
-    onOpponentScore: (score, color) => {
-      color === 'white' ? setWhiteScore(score) : setBlackScore(score);
-    },
-    onOpponentResign: email => {
-      alert('Opponent resigned, You win!');
-      setOpponentEmail(email);
-      setWinner(chosenPieceColor === 'white' ? 'white' : 'black');
-    },
-    onOpponentTimeout: email => {
-      alert('Opponent timed out, You win!');
-      setOpponentEmail(email);
-      setWinner(chosenPieceColor === 'white' ? 'white' : 'black');
-    },
-  });
+  const eventHandlers: EventHandlers = useMemo(
+    () => ({
+      onRoomJoined: data => setIsCreator(data.isCreator),
+      onOpponentJoined: () => setOpponentJoined(true),
+      onOpponentChoosePieceColor: color => {
+        setChosenPieceColor(color === 'white' ? 'black' : 'white');
+      },
+      onOpponentMove: move => {
+        setIsBlackMove(move.piece > 0);
+        setGrid(prevGrid => {
+          const newGrid = prevGrid.map(row => [...row]);
+          newGrid[7 - move.from.row][7 - move.from.col] = 0;
+          newGrid[7 - move.to.row][7 - move.to.col] = move.piece;
+          return newGrid;
+        });
+      },
+      onOpponentScore: (score, color) => {
+        color === 'white' ? setWhiteScore(score) : setBlackScore(score);
+      },
+      onOpponentResign: email => {
+        alert('Opponent resigned, You win!');
+        setOpponentEmail(email);
+        setWinner(chosenPieceColor === 'white' ? 'white' : 'black');
+      },
+      onOpponentTimeout: email => {
+        alert('Opponent timed out, You win!');
+        setOpponentEmail(email);
+        setWinner(chosenPieceColor === 'white' ? 'white' : 'black');
+      },
+      onRoomFull: () => {
+        alert('Room is full, please try another room');
+        navigate('/');
+      },
+      onAlreadyInRoom: () => {
+        alert('You are already in this room');
+        navigate('/');
+      },
+    }),
+    [chosenPieceColor, navigate]
+  );
+
+  useSocket(roomId, user?.email ?? '', eventHandlers);
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
