@@ -52,9 +52,9 @@ const ChessBoard = () => {
   // These are used to highlight valid moves and pieces in attack
   const [validMoves, setValidMoves] = useState<number[][]>([[]]);
   const [piecesInAttack, setPiecesInAttack] = useState<number[][]>([[]]);
-  const [movingPiece, setMovingPiece] = useState({
-    rowIndex: -1,
-    colIndex: -1,
+  const [movingPieceIndex, setMovingPieceIndex] = useState({
+    row: -1,
+    col: -1,
   });
   const [whiteTime, setWhiteTime] = useState(60);
   const [blackTime, setBlackTime] = useState(60);
@@ -210,8 +210,8 @@ const ChessBoard = () => {
       rowIndex,
       colIndex,
       setGrid,
-      movingPiece,
-      setMovingPiece,
+      movingPieceIndex,
+      setMovingPieceIndex,
       validMoves,
       setValidMoves,
       piecesInAttack,
@@ -265,8 +265,8 @@ const ChessBoard = () => {
                   isDanger && styles.danger,
                   isBlackMove && grid[rowIndex][colIndex] > 0 && styles.opacity,
                   !isBlackMove && grid[rowIndex][colIndex] < 0 && styles.opacity,
-                  rowIndex == movingPiece.rowIndex &&
-                    colIndex == movingPiece.colIndex &&
+                  rowIndex == movingPieceIndex.row &&
+                    colIndex == movingPieceIndex.col &&
                     styles.lastMoved
                 )}
                 onClick={e => onSquareClick(e, rowIndex, colIndex)}

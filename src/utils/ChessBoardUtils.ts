@@ -5,12 +5,102 @@ const isSafe = (grid: number[][], row: number, col: number, checkNull: boolean =
   else return true;
 };
 
+const isCastlingMove = (
+  grid: number[][],
+  row: number,
+  col: number,
+  movingPieceIndex: { row: number; col: number }
+) => {
+  const currentPiece = grid[row][col];
+  const movingPiece = grid[movingPieceIndex.row][movingPieceIndex.col];
+  if (!(row == 0 || row == 7)) return false;
+  if (!(movingPieceIndex.row == 0 || movingPieceIndex.row == 7)) return false;
+  if (row !== movingPieceIndex.row) return false;
+  if (!(currentPiece === 5 || currentPiece === -5)) return false;
+  if (!(movingPiece === 1 || movingPiece === -1)) return false;
+  return true;
+};
+
+const executeCastling = (
+  roomId: string,
+  grid: number[][],
+  col: number,
+  movingPieceIndex: { row: number; col: number },
+  setGrid: React.Dispatch<React.SetStateAction<number[][]>>,
+  setValidMoves: React.Dispatch<React.SetStateAction<number[][]>>,
+  setPiecesInAttack: React.Dispatch<React.SetStateAction<number[][]>>
+) => {
+  setGrid(prevGrid => {
+    let newGrid = prevGrid.map((r: number[]) => [...r]);
+
+    const kingStartCol = movingPieceIndex.col;
+    const kingRow = movingPieceIndex.row;
+
+    const isKingside = col > kingStartCol;
+
+    let from1, to1, from2, to2;
+
+    if (isKingside) {
+      // Kingside Castling
+      newGrid[kingRow][kingStartCol + 2] = newGrid[kingRow][kingStartCol]; // move king
+      newGrid[kingRow][kingStartCol] = 0;
+
+      newGrid[kingRow][kingStartCol + 1] = newGrid[kingRow][7]; // move rook
+      newGrid[kingRow][7] = 0;
+
+      from1 = { row: kingRow, col: 7 }; // rook
+      to1 = { row: kingRow, col: kingStartCol + 1 };
+      from2 = { row: kingRow, col: kingStartCol }; // king
+      to2 = { row: kingRow, col: kingStartCol + 2 };
+    } else {
+      // Queenside Castling
+      newGrid[kingRow][kingStartCol - 2] = newGrid[kingRow][kingStartCol]; // move king
+      newGrid[kingRow][kingStartCol] = 0;
+
+      newGrid[kingRow][kingStartCol - 1] = newGrid[kingRow][0]; // move rook
+      newGrid[kingRow][0] = 0;
+
+      from1 = { row: kingRow, col: 0 }; // rook
+      to1 = { row: kingRow, col: kingStartCol - 1 };
+      from2 = { row: kingRow, col: kingStartCol }; // king
+      to2 = { row: kingRow, col: kingStartCol - 2 };
+    }
+
+    setValidMoves([[]]);
+    setPiecesInAttack([[]]);
+
+    console.log('Castling Move:', from1, to1, from2, to2);
+
+    // Emit rook move
+    socket.emit('move', {
+      roomId,
+      move: {
+        piece: grid[from1.row][from1.col],
+        from: from1,
+        to: to1,
+      },
+    });
+
+    // Emit king move
+    socket.emit('move', {
+      roomId,
+      move: {
+        piece: grid[from2.row][from2.col],
+        from: from2,
+        to: to2,
+      },
+    });
+
+    return newGrid;
+  });
+};
+
 const movePiece = (
   grid: number[][],
   row: number,
   col: number,
   currentPiece: number,
-  movingPiece: { rowIndex: number; colIndex: number },
+  movingPieceIndex: { row: number; col: number },
   setGrid: React.Dispatch<React.SetStateAction<number[][]>>,
   setValidMoves: React.Dispatch<React.SetStateAction<number[][]>>,
   setPiecesInAttack: React.Dispatch<React.SetStateAction<number[][]>>,
@@ -21,6 +111,10 @@ const movePiece = (
   setShowTooltip: React.Dispatch<React.SetStateAction<boolean>>,
   roomId: string
 ) => {
+  if (isCastlingMove(grid, row, col, movingPieceIndex)) {
+    executeCastling(roomId, grid, col, movingPieceIndex, setGrid, setValidMoves, setPiecesInAttack);
+    return;
+  }
   let executed = false;
   setValidMoves([[]]);
   setPiecesInAttack([[]]);
@@ -28,10 +122,10 @@ const movePiece = (
   socket.emit('move', {
     roomId,
     move: {
-      piece: grid[movingPiece.rowIndex][movingPiece.colIndex],
+      piece: grid[movingPieceIndex.row][movingPieceIndex.col],
       from: {
-        row: movingPiece.rowIndex,
-        col: movingPiece.colIndex,
+        row: movingPieceIndex.row,
+        col: movingPieceIndex.col,
       },
       to: {
         row,
@@ -59,14 +153,13 @@ const movePiece = (
         setWhiteScore(updatedWhiteScore);
       }
     }
-    newGrid[row][col] = prevGrid[movingPiece.rowIndex][movingPiece.colIndex];
-    newGrid[movingPiece.rowIndex][movingPiece.colIndex] = 0;
+    newGrid[row][col] = prevGrid[movingPieceIndex.row][movingPieceIndex.col];
+    newGrid[movingPieceIndex.row][movingPieceIndex.col] = 0;
     executed = true;
     return newGrid;
   });
 
-  const val = grid[movingPiece.rowIndex][movingPiece.colIndex];
-  console.log('val', val, currentPiece);
+  const val = grid[movingPieceIndex.row][movingPieceIndex.col];
   if (
     (row == 0 || row == 7) &&
     (val == 6 || val == -6) &&
@@ -252,17 +345,68 @@ const highLight = (
   setPiecesInAttack(prevAttackingMoves => [...prevAttackingMoves, ...attackingMoves]);
 };
 
+const isPathClear = (grid: number[][], row: number, colStart: number, colEnd: number) => {
+  for (let i = colStart; i <= colEnd; i++) {
+    if (grid[row][i] != 0) return false;
+  }
+  return true;
+};
+
+const checkIfCastlingIsPossible = (
+  grid: number[][],
+  row: number,
+  col: number,
+  setPiecesInAttack: React.Dispatch<React.SetStateAction<number[][]>>,
+  isWhitePieceDown: boolean
+) => {
+  if (grid[row][col] != 1 && grid[row][col] != -1) return;
+  if (!(row == 0 || row == 7)) return;
+  if (!(col == 3 || col == 4)) return;
+  if (isWhitePieceDown) {
+    if (row == 0) {
+      if (grid[0][0] === -5 && isPathClear(grid, 0, 1, 3)) {
+        setPiecesInAttack(prev => [...prev, [0, 0]]);
+      }
+      if (grid[0][7] === -5 && isPathClear(grid, 0, 5, 6)) {
+        setPiecesInAttack(prev => [...prev, [0, 7]]);
+      }
+    } else {
+      if (grid[7][0] === 5 && isPathClear(grid, 7, 1, 3)) {
+        setPiecesInAttack(prev => [...prev, [7, 0]]);
+      }
+      if (grid[7][7] === 5 && isPathClear(grid, 7, 5, 6)) {
+        setPiecesInAttack(prev => [...prev, [7, 7]]);
+      }
+    }
+  } else {
+    if (row == 0) {
+      if (grid[0][0] === 5 && isPathClear(grid, 0, 1, 3)) {
+        setPiecesInAttack(prev => [...prev, [0, 0]]);
+      }
+      if (grid[0][7] === 5 && isPathClear(grid, 0, 5, 6)) {
+        setPiecesInAttack(prev => [...prev, [0, 7]]);
+      }
+    } else {
+      if (grid[7][0] === -5 && isPathClear(grid, 7, 1, 3)) {
+        setPiecesInAttack(prev => [...prev, [7, 0]]);
+      }
+      if (grid[7][7] === -5 && isPathClear(grid, 7, 5, 6)) {
+        setPiecesInAttack(prev => [...prev, [7, 7]]);
+      }
+    }
+  }
+};
 export const handleSquareClick = (
   event: React.MouseEvent<HTMLDivElement, MouseEvent>,
   grid: number[][],
   row: number,
   col: number,
   setGrid: React.Dispatch<React.SetStateAction<number[][]>>,
-  movingPiece: { rowIndex: number; colIndex: number },
-  setMovingPiece: React.Dispatch<
+  movingPieceIndex: { row: number; col: number },
+  setMovingPieceIndex: React.Dispatch<
     React.SetStateAction<{
-      rowIndex: number;
-      colIndex: number;
+      row: number;
+      col: number;
     }>
   >,
   validMoves: number[][],
@@ -281,26 +425,23 @@ export const handleSquareClick = (
   isWhitePieceDown: boolean,
   roomId: string
 ) => {
+  const currentPiece = grid[row][col];
   if (
     validMoves.some(move => move[0] == row && move[1] == col) ||
     piecesInAttack.some(move => move[0] == row && move[1] == col)
   ) {
-    if (movingPiece.rowIndex == -1) {
+    if (movingPieceIndex.row == -1) {
       return;
-    }
-
-    if (movingPiece.rowIndex == row && movingPiece.colIndex == col) {
     }
     setTooltipX(event.clientX);
     setTooltipY(event.clientY);
     setIsBlackMove(prev => !prev);
-    const currentPiece = grid[row][col];
     movePiece(
       grid,
       row,
       col,
       currentPiece,
-      movingPiece,
+      movingPieceIndex,
       setGrid,
       setValidMoves,
       setPiecesInAttack,
@@ -311,19 +452,18 @@ export const handleSquareClick = (
       setShowTooltip,
       roomId
     );
-    setMovingPiece({ rowIndex: row, colIndex: col });
+    setMovingPieceIndex({ row: row, col: col });
   } else {
     // If the clicked square is not a valid move or attack, reset the moving piece
-    if (movingPiece.rowIndex != -1) {
+    if (movingPieceIndex.row != -1) {
       setValidMoves([[]]);
       setPiecesInAttack([[]]);
-      setMovingPiece({ rowIndex: -1, colIndex: -1 });
+      setMovingPieceIndex({ row: -1, col: -1 });
     }
 
-    if (isBlackMove && grid[row][col] > 0) return;
-    if (!isBlackMove && grid[row][col] < 0) return;
-
-    setMovingPiece({ rowIndex: row, colIndex: col });
+    if ((isBlackMove && currentPiece > 0) || (!isBlackMove && currentPiece < 0)) return;
+    checkIfCastlingIsPossible(grid, row, col, setPiecesInAttack, isWhitePieceDown);
+    setMovingPieceIndex({ row: row, col: col });
     highLight(grid, row, col, setValidMoves, setPiecesInAttack, isWhitePieceDown);
   }
 };
