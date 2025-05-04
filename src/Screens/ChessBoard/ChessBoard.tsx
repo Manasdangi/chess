@@ -56,8 +56,8 @@ const ChessBoard = () => {
     row: -1,
     col: -1,
   });
-  const [whiteTime, setWhiteTime] = useState(60);
-  const [blackTime, setBlackTime] = useState(60);
+  const [whiteTime, setWhiteTime] = useState(10 * 60);
+  const [blackTime, setBlackTime] = useState(10 * 60);
   const [winner, setWinner] = useState<'white' | 'black' | null>(null);
   const [isCreator, setIsCreator] = useState(false);
   const [opponentJoined, setOpponentJoined] = useState(false);
