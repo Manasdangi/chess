@@ -7,12 +7,13 @@ export const useSocket = (
   userId: string,
   callbacks: {
     onRoomJoined: (data: { isCreator: boolean }) => void;
-    onOpponentJoined: () => void;
+    onOpponentJoined: (email: string) => void;
     onOpponentChoosePieceColor: (color: 'white' | 'black') => void;
     onOpponentMove: (move: Move) => void;
     onOpponentScore: (score: number[], color: 'white' | 'black') => void;
-    onOpponentResign: (email: string) => void;
-    onOpponentTimeout: (email: string) => void;
+    onOpponentResign: () => void;
+    onOpponentTimeout: () => void;
+    onOpponentKingKilled: () => void;
     onRoomFull: () => void;
     onAlreadyInRoom: () => void;
   }
@@ -28,6 +29,7 @@ export const useSocket = (
       onOpponentScore,
       onOpponentResign,
       onOpponentTimeout,
+      onOpponentKingKilled,
       onRoomFull,
       onAlreadyInRoom,
     } = callbacks;
@@ -39,9 +41,9 @@ export const useSocket = (
     socket.on('opponentMove', onOpponentMove);
     socket.on('opponentResign', onOpponentResign);
     socket.on('opponentTimeout', onOpponentTimeout);
+    socket.on('opponentKingKilled', onOpponentKingKilled);
     socket.on('roomFull', onRoomFull);
     socket.on('alreadyInRoom', onAlreadyInRoom);
-    console.log('test Joining room:', roomId);
     socket.emit('joinRoom', roomId, userId);
 
     return () => {
@@ -52,6 +54,7 @@ export const useSocket = (
       socket.off('newOpponentScore', onOpponentScore);
       socket.off('opponentResign', onOpponentResign);
       socket.off('opponentTimeout', onOpponentTimeout);
+      socket.off('opponentKingKilled', onOpponentKingKilled);
       socket.off('alreadyInRoom', onAlreadyInRoom);
       socket.off('roomFull', onRoomFull);
     };

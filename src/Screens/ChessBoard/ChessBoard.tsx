@@ -16,15 +16,17 @@ import { Move } from '../../types/chess';
 
 interface EventHandlers {
   onRoomJoined: (data: { isCreator: boolean }) => void;
-  onOpponentJoined: () => void;
+  onOpponentJoined: (email: string) => void;
   onOpponentChoosePieceColor: (color: 'white' | 'black') => void;
   onOpponentMove: (move: Move) => void;
   onOpponentScore: (score: number[], color: 'white' | 'black') => void;
-  onOpponentResign: (email: string) => void;
-  onOpponentTimeout: (email: string) => void;
+  onOpponentResign: () => void;
+  onOpponentTimeout: () => void;
+  onOpponentKingKilled: () => void;
   onRoomFull: () => void;
   onAlreadyInRoom: () => void;
 }
+
 const ChessBoard = () => {
   const { user } = useAuthStore();
   const { roomId } = useParams();
@@ -63,7 +65,10 @@ const ChessBoard = () => {
   const eventHandlers: EventHandlers = useMemo(
     () => ({
       onRoomJoined: data => setIsCreator(data.isCreator),
-      onOpponentJoined: () => setOpponentJoined(true),
+      onOpponentJoined: email => {
+        setOpponentEmail(email);
+        setOpponentJoined(true);
+      },
       onOpponentChoosePieceColor: color => {
         setChosenPieceColor(color === 'white' ? 'black' : 'white');
       },
@@ -79,14 +84,12 @@ const ChessBoard = () => {
       onOpponentScore: (score, color) => {
         color === 'white' ? setWhiteScore(score) : setBlackScore(score);
       },
-      onOpponentResign: email => {
+      onOpponentResign: () => {
         alert('Opponent resigned, You win!');
-        setOpponentEmail(email);
         setWinner(chosenPieceColor === 'white' ? 'white' : 'black');
       },
-      onOpponentTimeout: email => {
+      onOpponentTimeout: () => {
         alert('Opponent timed out, You win!');
-        setOpponentEmail(email);
         setWinner(chosenPieceColor === 'white' ? 'white' : 'black');
       },
       onRoomFull: () => {
@@ -94,10 +97,15 @@ const ChessBoard = () => {
         navigate('/');
       },
       onAlreadyInRoom: () => {
-        alert('You are already in this room');
+        alert(
+          'You are already present in this room, Please cancel this tab and navigate to previous tab'
+        );
+      },
+      onOpponentKingKilled: () => {
+        setWinner(chosenPieceColor === 'white' ? 'black' : 'white');
       },
     }),
-    [chosenPieceColor, navigate]
+    []
   );
 
   useSocket(roomId, user?.email ?? '', eventHandlers);
@@ -150,6 +158,27 @@ const ChessBoard = () => {
     }
   }, [chosenPieceColor]);
 
+  const getSelfColor = () => {
+    if (chosenPieceColor === 'white') {
+      return isBlackMove ? 'black' : 'white';
+    } else {
+      return isBlackMove ? 'white' : 'black';
+    }
+  };
+
+  const isKingKilled = () => {
+    if (isBlackMove) {
+      return whiteScore.includes(-1);
+    }
+    return blackScore.includes(1);
+  };
+
+  useEffect(() => {
+    if (isKingKilled()) {
+      socket.emit('onOpponentKingKilled', roomId, user?.email);
+    }
+  }, [blackScore, whiteScore]);
+
   const selectPiece = (piece: number) => {
     setValidMoves([[]]);
     setPiecesInAttack([[]]);
@@ -160,29 +189,6 @@ const ChessBoard = () => {
     });
     setShowTooltip(false);
   };
-
-  const getSelfColor = () => {
-    if (chosenPieceColor === 'white') {
-      return isBlackMove ? 'black' : 'white';
-    } else {
-      return isBlackMove ? 'white' : 'black';
-    }
-  };
-
-  const isKingKilled = () => {
-    console.log('check', whiteScore, blackScore);
-    if (isBlackMove) {
-      return whiteScore.includes(1);
-    }
-    return blackScore.includes(1);
-  };
-
-  useEffect(() => {
-    if (isKingKilled()) {
-      alert('King is killed, You lose!');
-      setWinner(chosenPieceColor === 'white' ? 'black' : 'white');
-    }
-  }, [blackScore, whiteScore]);
 
   const onSquareClick = (
     e: React.MouseEvent<HTMLDivElement, MouseEvent>,
