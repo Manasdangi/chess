@@ -1,6 +1,23 @@
 .previousGames {
   color: #fff;
 
+  .hint,
+  .empty {
+    text-align: center;
+    font-size: 14px;
+    opacity: 0.85;
+    margin-bottom: 12px;
+  }
+
+  .hint {
+    color: #ffb74d;
+  }
+
+  .emailLine {
+    font-size: 12px;
+    opacity: 0.75;
+  }
+
   h2 {
     text-align: center;
     margin-bottom: 20px;

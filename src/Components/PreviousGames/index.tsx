@@ -1,54 +1,62 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import CrossButton from '../CrossButton';
-import styles from './PreviousGames.module.scss'; // We'll write styles after this
-
-const dummyGames = [
-  {
-    id: '1',
-    date: new Date('2025-04-20'),
-    opponent: 'Rohan Sharma',
-    result: 'win',
-    color: 'white',
-  },
-  {
-    id: '2',
-    date: new Date('2025-04-21'),
-    opponent: 'Ankit Gupta',
-    result: 'loss',
-    color: 'black',
-  },
-  {
-    id: '3',
-    date: new Date('2025-04-22'),
-    opponent: 'Vikram Verma',
-    result: 'win',
-    color: 'black',
-  },
-];
+import styles from './PreviousGames.module.scss';
+import useAuthStore from '../../Context/useAuthStore';
+import { fetchGameHistory } from '../../services/gameHistory';
 
 interface IProps {
   onClose: () => void;
 }
 
 export const PreviousGames: React.FC<IProps> = ({ onClose }) => {
+  const user = useAuthStore(state => state.user);
+  const setGameHistory = useAuthStore(state => state.setGameHistory);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    setLoadError(null);
+    fetchGameHistory(user.uid)
+      .then(setGameHistory)
+      .catch(err => {
+        console.error(err);
+        setLoadError('Could not refresh history. Showing cached games.');
+      });
+  }, [user?.uid, setGameHistory]);
+
+  const games = user?.userHistory ?? [];
+
   return (
     <div className={styles.previousGames}>
       <CrossButton onClick={onClose} />
       <h2>Previous Games</h2>
+      {loadError && <p className={styles.hint}>{loadError}</p>}
       <div className={styles.gamesList}>
-        {dummyGames.map(game => (
-          <div key={game.id} className={styles.gameItem}>
-            <div>{game.date.toDateString()}</div>
-            <div>Opponent: {game.opponent}</div>
-            <div>
-              Result:
-              <span className={game.result === 'win' ? styles.win : styles.loss}>
-                {game.result.toUpperCase()}
-              </span>
-            </div>
-            <div>Played as: {game.color.toUpperCase()}</div>
-          </div>
-        ))}
+        {games.length === 0 ? (
+          <p className={styles.empty}>No completed games yet.</p>
+        ) : (
+          games.map(game => {
+            const playedDate = new Date(game.playedAt);
+            const opponentLabel =
+              game.opponentDisplayName?.trim() || game.opponentEmail || 'Unknown opponent';
+            return (
+              <div key={game.id ?? `${game.playedAt}-${game.opponentEmail}`} className={styles.gameItem}>
+                <div>{playedDate.toDateString()}</div>
+                <div>Opponent: {opponentLabel}</div>
+                {game.opponentDisplayName?.trim() && (
+                  <div className={styles.emailLine}>{game.opponentEmail}</div>
+                )}
+                <div>
+                  Result:
+                  <span className={game.result === 'win' ? styles.win : styles.loss}>
+                    {game.result.toUpperCase()}
+                  </span>
+                </div>
+                <div>Played as: {game.myColor.toUpperCase()}</div>
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );

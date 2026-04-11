@@ -2,12 +2,17 @@ import { useEffect } from 'react';
 import socket from '../Socket/socket';
 import { Move } from '../types/chess';
 
+export type OpponentJoinedPayload = {
+  opponentEmail: string;
+  opponentDisplayName: string;
+};
+
 export const useSocket = (
   roomId: string | undefined,
-  userId: string,
+  joinProfile: { email: string; displayName: string },
   callbacks: {
     onRoomJoined: (data: { isCreator: boolean }) => void;
-    onOpponentJoined: (email: string) => void;
+    onOpponentJoined: (payload: OpponentJoinedPayload) => void;
     onOpponentChoosePieceColor: (color: 'white' | 'black') => void;
     onOpponentMove: (move: Move) => void;
     onOpponentScore: (score: number[], color: 'white' | 'black') => void;
@@ -35,7 +40,19 @@ export const useSocket = (
     } = callbacks;
 
     socket.on('roomJoined', onRoomJoined);
-    socket.on('opponentJoined', onOpponentJoined);
+    socket.on('opponentJoined', (payload: unknown) => {
+      if (typeof payload === 'string') {
+        onOpponentJoined({ opponentEmail: payload, opponentDisplayName: '' });
+        return;
+      }
+      if (payload && typeof payload === 'object' && 'opponentEmail' in payload) {
+        const p = payload as { opponentEmail?: string; opponentDisplayName?: string };
+        onOpponentJoined({
+          opponentEmail: p.opponentEmail ?? '',
+          opponentDisplayName: p.opponentDisplayName ?? '',
+        });
+      }
+    });
     socket.on('opponentChoosePieceColor', onOpponentChoosePieceColor);
     socket.on('newOpponentScore', onOpponentScore);
     socket.on('opponentMove', onOpponentMove);
@@ -44,11 +61,14 @@ export const useSocket = (
     socket.on('opponentKingKilled', onOpponentKingKilled);
     socket.on('roomFull', onRoomFull);
     socket.on('alreadyInRoom', onAlreadyInRoom);
-    socket.emit('joinRoom', roomId, userId);
+    socket.emit('joinRoom', roomId, {
+      email: joinProfile.email,
+      displayName: joinProfile.displayName,
+    });
 
     return () => {
       socket.off('roomJoined', onRoomJoined);
-      socket.off('opponentJoined', onOpponentJoined);
+      socket.off('opponentJoined');
       socket.off('opponentChoosePieceColor', onOpponentChoosePieceColor);
       socket.off('opponentMove', onOpponentMove);
       socket.off('newOpponentScore', onOpponentScore);
@@ -58,5 +78,5 @@ export const useSocket = (
       socket.off('alreadyInRoom', onAlreadyInRoom);
       socket.off('roomFull', onRoomFull);
     };
-  }, [roomId, callbacks]);
+  }, [roomId, joinProfile.email, joinProfile.displayName, callbacks]);
 };

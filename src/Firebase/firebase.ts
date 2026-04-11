@@ -4,15 +4,14 @@ import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyAw2zHO1O4aWrdX6F62dyanVIWl205Nl-k',
-  authDomain: 'chessgame-1c9c2.firebaseapp.com',
-  projectId: 'chessgame-1c9c2',
-  storageBucket: 'chessgame-1c9c2.firebasestorage.app',
-  messagingSenderId: '734152785784',
-  appId: '1:734152785784:web:b201c5ca4e15b4c926128d',
-  measurementId: 'G-6QSVGTYQ6E',
+  apiKey: 'AIzaSyAUMONRkuuYpSrKl7i3BqXhbEvv2FolmB8',
+  authDomain: 'chess-80fe5.firebaseapp.com',
+  projectId: 'chess-80fe5',
+  storageBucket: 'chess-80fe5.firebasestorage.app',
+  messagingSenderId: '665661957924',
+  appId: '1:665661957924:web:cbdd3ec53d2fdd430fb5b1',
+  measurementId: 'G-05B66TMHVG',
 };
-
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 

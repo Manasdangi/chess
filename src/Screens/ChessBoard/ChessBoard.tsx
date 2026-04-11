@@ -1,6 +1,6 @@
 // ChessBoard.tsx
 import styles from './ChessBoard.module.scss';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import RenderPieces from './Components/RenderPieces';
 import ToolTip from './Components/ToolTip';
 import pieceImages, { classNames, pieceMap } from '../../utils/Util';
@@ -12,11 +12,12 @@ import socket from '../../Socket/socket';
 import { useSocket } from '../../hook/useSocket';
 import { FaHome } from 'react-icons/fa';
 import useAuthStore from '../../Context/useAuthStore';
+import { saveGameHistory } from '../../services/gameHistory';
 import { Move } from '../../types/chess';
 
 interface EventHandlers {
   onRoomJoined: (data: { isCreator: boolean }) => void;
-  onOpponentJoined: (email: string) => void;
+  onOpponentJoined: (payload: { opponentEmail: string; opponentDisplayName: string }) => void;
   onOpponentChoosePieceColor: (color: 'white' | 'black') => void;
   onOpponentMove: (move: Move) => void;
   onOpponentScore: (score: number[], color: 'white' | 'black') => void;
@@ -28,12 +29,13 @@ interface EventHandlers {
 }
 
 const ChessBoard = () => {
-  const { user } = useAuthStore();
+  const { user, addGameHistoryEntry } = useAuthStore();
   const { roomId } = useParams();
   const navigate = useNavigate();
   const [grid, setGrid] = useState<number[][]>([[]]);
   const [chosenPieceColor, setChosenPieceColor] = useState<'white' | 'black' | null>(null);
   const [opponentEmail, setOpponentEmail] = useState<string | null>(null);
+  const [opponentDisplayName, setOpponentDisplayName] = useState('');
   const [isBlackMove, setIsBlackMove] = useState(false);
   const [currentIndex, setCurrentIndex] = useState({
     rowIndex: 0,
@@ -62,11 +64,14 @@ const ChessBoard = () => {
   const [isCreator, setIsCreator] = useState(false);
   const [opponentJoined, setOpponentJoined] = useState(false);
 
+  const historySavedRef = useRef(false);
+
   const eventHandlers: EventHandlers = useMemo(
     () => ({
       onRoomJoined: data => setIsCreator(data.isCreator),
-      onOpponentJoined: email => {
-        setOpponentEmail(email);
+      onOpponentJoined: payload => {
+        setOpponentEmail(payload.opponentEmail);
+        setOpponentDisplayName(payload.opponentDisplayName?.trim() || '');
         setOpponentJoined(true);
       },
       onOpponentChoosePieceColor: color => {
@@ -105,10 +110,44 @@ const ChessBoard = () => {
         setWinner(chosenPieceColor === 'white' ? 'black' : 'white');
       },
     }),
-    []
+    [chosenPieceColor, navigate]
   );
 
-  useSocket(roomId, user?.email ?? '', eventHandlers);
+  const persistFinishedGame = useCallback(
+    async (result: 'win' | 'loss') => {
+      if (historySavedRef.current || !user?.uid || !opponentEmail || !chosenPieceColor) return;
+      historySavedRef.current = true;
+      const playedAt = new Date().toISOString();
+      const entry = {
+        playedAt,
+        opponentEmail,
+        opponentDisplayName: opponentDisplayName || '',
+        result,
+        myColor: chosenPieceColor,
+        roomId: roomId ?? undefined,
+      };
+      try {
+        const id = await saveGameHistory(user.uid, entry);
+        addGameHistoryEntry({ ...entry, id });
+      } catch (e) {
+        console.error('Failed to save game history', e);
+        addGameHistoryEntry({ ...entry });
+      }
+    },
+    [user?.uid, opponentEmail, opponentDisplayName, chosenPieceColor, roomId, addGameHistoryEntry]
+  );
+
+  useSocket(
+    roomId,
+    { email: user?.email ?? '', displayName: user?.displayName ?? '' },
+    eventHandlers
+  );
+
+  useEffect(() => {
+    if (!winner || !chosenPieceColor || !opponentEmail || !user?.uid) return;
+    const result = winner === chosenPieceColor ? 'win' : 'loss';
+    void persistFinishedGame(result);
+  }, [winner, chosenPieceColor, opponentEmail, user?.uid, persistFinishedGame]);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -174,10 +213,10 @@ const ChessBoard = () => {
   };
 
   useEffect(() => {
-    if (isKingKilled()) {
-      socket.emit('onOpponentKingKilled', roomId, user?.email);
+    if (isKingKilled() && roomId) {
+      socket.emit('onOpponentKingKilled', roomId, user?.email ?? '');
     }
-  }, [blackScore, whiteScore]);
+  }, [blackScore, whiteScore, roomId, user?.email]);
 
   const selectPiece = (piece: number) => {
     setValidMoves([[]]);
@@ -280,11 +319,14 @@ const ChessBoard = () => {
     </div>
   );
 
-  const handleHomeClick = () => {
-    if (window.confirm('Are you sure you want to quit the game?')) {
-      socket.emit('resign', roomId, user?.email);
-      navigate('/');
+  const handleHomeClick = async () => {
+    if (!window.confirm('Are you sure you want to quit the game?')) return;
+    socket.emit('resign', roomId, user?.email);
+    if (chosenPieceColor && opponentEmail && user?.uid) {
+      historySavedRef.current = false;
+      await persistFinishedGame('loss');
     }
+    navigate('/');
   };
 
   if (winner) {
