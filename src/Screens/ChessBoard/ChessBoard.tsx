@@ -444,9 +444,9 @@ const ChessBoard = () => {
             {blackScore.length > 0 && renderCapturedPieces(blackScore, 'grey')}
             {whiteScore.length > 0 && renderCapturedPieces(whiteScore, 'white')}
           </div>
-          <Timer {...{ chosenPieceColor, isBlackMove, blackTime, whiteTime, position: 'top' }} />
+          <Timer {...{ chosenPieceColor, blackTime, whiteTime, position: 'top' }} />
           {renderChessBoard()}
-          <Timer {...{ chosenPieceColor, isBlackMove, blackTime, whiteTime, position: 'bottom' }} />
+          <Timer {...{ chosenPieceColor, blackTime, whiteTime, position: 'bottom' }} />
           {showTooltip && (
             <ToolTip x={tooltipX} y={tooltipY} showBlack={isBlackMove} selectPiece={selectPiece} />
           )}

@@ -4,7 +4,6 @@ import { formatTime } from '../../../utils/Util';
 
 interface TimerProps {
   chosenPieceColor: 'white' | 'black';
-  isBlackMove: boolean;
   blackTime: number;
   whiteTime: number;
   position: 'top' | 'bottom'; // NEW PROP
@@ -12,7 +11,6 @@ interface TimerProps {
 
 const Timer: React.FC<TimerProps> = ({
   chosenPieceColor,
-  isBlackMove,
   blackTime,
   whiteTime,
   position,
@@ -23,11 +21,10 @@ const Timer: React.FC<TimerProps> = ({
     (chosenPieceColor === 'black' && position === 'bottom');
 
   const player = isUserTimer ? chosenPieceColor : chosenPieceColor === 'white' ? 'black' : 'white';
-  const isTurn = player === 'black' ? isBlackMove : !isBlackMove;
   const time = player === 'black' ? blackTime : whiteTime;
 
   return (
-    <div className={isTurn ? styles.blinkingTimer : ''}>
+    <div className={styles.timerLabel}>
       <strong>{player.charAt(0).toUpperCase() + player.slice(1)}:</strong> {formatTime(time)}
     </div>
   );

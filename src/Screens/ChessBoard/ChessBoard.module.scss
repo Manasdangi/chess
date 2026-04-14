@@ -83,22 +83,6 @@
       }
     }
   }
-  @keyframes blink {
-    0%,
-    100% {
-      background-color: #e1d9d9;
-    }
-    50% {
-      background-color: #211f1f;
-    }
-  }
-
-  .blinkingTimer {
-    animation: blink 1s infinite;
-    margin: 5px;
-    border-radius: 4px;
-    transition: background-color 0.3s ease;
-  }
 }
 
 .waitingText {
@@ -216,4 +200,9 @@
     background: rgba(34, 197, 94, 0.28);
     transform: translateY(-1px);
   }
+}
+
+.timerLabel {
+  margin: 5px;
+  border-radius: 4px;
 }
