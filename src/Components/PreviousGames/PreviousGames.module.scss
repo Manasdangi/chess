@@ -1,5 +1,7 @@
 .previousGames {
   color: #fff;
+  padding: 0.75rem 1rem 1.25rem;
+  box-sizing: border-box;
 
   .hint,
   .empty {
@@ -27,6 +29,7 @@
     display: flex;
     flex-direction: column;
     gap: 15px;
+    padding-bottom: 0.5rem;
 
     .gameItem {
       background: #222;
@@ -48,6 +51,12 @@
       .loss {
         color: #f44336; /* Red for loss */
         font-weight: bold;
+      }
+
+      .endReason {
+        font-size: 12px;
+        opacity: 0.8;
+        margin-bottom: 0;
       }
     }
   }

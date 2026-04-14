@@ -63,8 +63,18 @@ const ChessBoard = () => {
   const [winner, setWinner] = useState<'white' | 'black' | null>(null);
   const [isCreator, setIsCreator] = useState(false);
   const [opponentJoined, setOpponentJoined] = useState(false);
+  const [historySaveStatus, setHistorySaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>(
+    'idle'
+  );
 
   const historySavedRef = useRef(false);
+  const kingKillNotifiedRef = useRef(false);
+  /** Set before setWinner so persist can attach Firestore metadata (e.g. king_capture). */
+  const gameEndMetaRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    kingKillNotifiedRef.current = false;
+  }, [roomId]);
 
   const eventHandlers: EventHandlers = useMemo(
     () => ({
@@ -87,14 +97,17 @@ const ChessBoard = () => {
         });
       },
       onOpponentScore: (score, color) => {
-        color === 'white' ? setWhiteScore(score) : setBlackScore(score);
+        if (color === 'white') setWhiteScore(score);
+        else setBlackScore(score);
       },
       onOpponentResign: () => {
         alert('Opponent resigned, You win!');
+        gameEndMetaRef.current = 'opponent_resigned';
         setWinner(chosenPieceColor === 'white' ? 'white' : 'black');
       },
       onOpponentTimeout: () => {
         alert('Opponent timed out, You win!');
+        gameEndMetaRef.current = 'opponent_timeout';
         setWinner(chosenPieceColor === 'white' ? 'white' : 'black');
       },
       onRoomFull: () => {
@@ -107,6 +120,7 @@ const ChessBoard = () => {
         );
       },
       onOpponentKingKilled: () => {
+        gameEndMetaRef.current = 'king_capture';
         setWinner(chosenPieceColor === 'white' ? 'black' : 'white');
       },
     }),
@@ -114,24 +128,43 @@ const ChessBoard = () => {
   );
 
   const persistFinishedGame = useCallback(
-    async (result: 'win' | 'loss') => {
-      if (historySavedRef.current || !user?.uid || !opponentEmail || !chosenPieceColor) return;
+    async (result: 'win' | 'loss', endReason?: string) => {
+      if (historySavedRef.current || !user?.uid || !chosenPieceColor) return false;
       historySavedRef.current = true;
       const playedAt = new Date().toISOString();
+      const opponentEmailResolved =
+        opponentEmail?.trim() ||
+        (roomId ? `unknown+${roomId}@game.local` : 'unknown@game.local');
       const entry = {
         playedAt,
-        opponentEmail,
+        opponentEmail: opponentEmailResolved,
         opponentDisplayName: opponentDisplayName || '',
         result,
         myColor: chosenPieceColor,
         roomId: roomId ?? undefined,
+        endReason,
       };
       try {
         const id = await saveGameHistory(user.uid, entry);
         addGameHistoryEntry({ ...entry, id });
+        console.info('[GameHistory] Saved successfully', {
+          id,
+          uid: user.uid,
+          roomId: entry.roomId ?? null,
+          result: entry.result,
+          endReason: entry.endReason ?? null,
+        });
+        return true;
       } catch (e) {
-        console.error('Failed to save game history', e);
+        console.error('[GameHistory] Save failed', {
+          uid: user.uid,
+          roomId: entry.roomId ?? null,
+          result: entry.result,
+          endReason: entry.endReason ?? null,
+          error: e,
+        });
         addGameHistoryEntry({ ...entry });
+        return false;
       }
     },
     [user?.uid, opponentEmail, opponentDisplayName, chosenPieceColor, roomId, addGameHistoryEntry]
@@ -144,10 +177,16 @@ const ChessBoard = () => {
   );
 
   useEffect(() => {
-    if (!winner || !chosenPieceColor || !opponentEmail || !user?.uid) return;
+    if (!winner || !chosenPieceColor || !user?.uid) return;
     const result = winner === chosenPieceColor ? 'win' : 'loss';
-    void persistFinishedGame(result);
-  }, [winner, chosenPieceColor, opponentEmail, user?.uid, persistFinishedGame]);
+    const endMeta = gameEndMetaRef.current;
+    gameEndMetaRef.current = undefined;
+    setHistorySaveStatus('saving');
+    console.log('[GameHistory] Game over reached, attempting save...');
+    void persistFinishedGame(result, endMeta).then(saved => {
+      setHistorySaveStatus(saved ? 'saved' : 'failed');
+    });
+  }, [winner, chosenPieceColor, user?.uid, persistFinishedGame]);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -163,6 +202,7 @@ const ChessBoard = () => {
           if (prev < 1) {
             clearInterval(id);
             intervalRef.current = null;
+            gameEndMetaRef.current = 'clock_timeout';
             setWinner('white');
             if (chosenPieceColor === 'black') {
               socket.emit('onOpponentTimeout', roomId, user?.email);
@@ -176,6 +216,7 @@ const ChessBoard = () => {
           if (prev < 1) {
             clearInterval(id);
             intervalRef.current = null;
+            gameEndMetaRef.current = 'clock_timeout';
             setWinner('black');
             if (chosenPieceColor === 'white') {
               socket.emit('onOpponentTimeout', roomId, user?.email);
@@ -205,18 +246,20 @@ const ChessBoard = () => {
     }
   };
 
-  const isKingKilled = () => {
-    if (isBlackMove) {
-      return whiteScore.includes(-1);
-    }
-    return blackScore.includes(1);
-  };
-
+  /** Black king (-1) captured → white wins; white king (1) captured → black wins. */
   useEffect(() => {
-    if (isKingKilled() && roomId) {
+    if (!roomId || winner) return;
+    const whiteKingTaken = whiteScore.includes(-1);
+    const blackKingTaken = blackScore.includes(1);
+    if (!whiteKingTaken && !blackKingTaken) return;
+    if (!kingKillNotifiedRef.current) {
+      kingKillNotifiedRef.current = true;
       socket.emit('onOpponentKingKilled', roomId, user?.email ?? '');
     }
-  }, [blackScore, whiteScore, roomId, user?.email]);
+    gameEndMetaRef.current = 'king_capture';
+    if (whiteKingTaken) setWinner('white');
+    else setWinner('black');
+  }, [blackScore, whiteScore, roomId, user?.email, winner]);
 
   const selectPiece = (piece: number) => {
     setValidMoves([[]]);
@@ -322,10 +365,14 @@ const ChessBoard = () => {
   const handleHomeClick = async () => {
     if (!window.confirm('Are you sure you want to quit the game?')) return;
     socket.emit('resign', roomId, user?.email);
-    if (chosenPieceColor && opponentEmail && user?.uid) {
+    if (chosenPieceColor && user?.uid) {
       historySavedRef.current = false;
-      await persistFinishedGame('loss');
+      await persistFinishedGame('loss', 'resigned');
     }
+    navigate('/');
+  };
+
+  const handleStartNewGame = () => {
     navigate('/');
   };
 
@@ -334,6 +381,14 @@ const ChessBoard = () => {
       <div className={styles.container}>
         <p className={styles.header}>Game Over</p>
         <p className={styles.winner}>{winner.toUpperCase()} wins</p>
+        <p className={styles.saveStatus}>
+          {historySaveStatus === 'saving' && 'Saving game history...'}
+          {historySaveStatus === 'saved' && 'Game history saved.'}
+          {historySaveStatus === 'failed' && 'Could not save to cloud, kept locally.'}
+        </p>
+        <button className={styles.newGameButton} onClick={handleStartNewGame}>
+          Start a New Game
+        </button>
       </div>
     );
   }
@@ -341,13 +396,18 @@ const ChessBoard = () => {
   return (
     <div className={styles.container}>
       <div className={styles.headerContainer}>
-        <p className={styles.header}>Start Playing for Room: {roomId}</p>
+        <div className={styles.roomHeaderCard}>
+          <p className={styles.header}>Start Playing</p>
+          <p className={styles.roomMeta}>
+            Room ID: <span>{roomId}</span>
+          </p>
+        </div>
         <button className={styles.homeButton} onClick={handleHomeClick}>
           <FaHome size={24} />
         </button>
       </div>
       {!chosenPieceColor ? (
-        <div className={styles.choosePieceColor}>
+        <div className={styles.setupCard}>
           {isCreator ? (
             opponentJoined ? (
               <>

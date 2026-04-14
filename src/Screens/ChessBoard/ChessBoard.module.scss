@@ -1,28 +1,32 @@
 .container {
   width: 100vw;
+  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   font-family:
-    'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
-  padding: 20px;
+    'Outfit',
+    'Trebuchet MS',
+    'Lucida Sans Unicode',
+    'Lucida Grande',
+    'Lucida Sans',
+    Arial,
+    sans-serif;
+  padding: 2rem 1.25rem;
   position: relative;
+  box-sizing: border-box;
+  background:
+    radial-gradient(ellipse 100% 70% at 50% -10%, rgba(34, 197, 94, 0.14), transparent 65%),
+    linear-gradient(165deg, #151719 0%, #1d2024 45%, #121417 100%);
+  color: #f8fafc;
 
   .header {
-    font-weight: bolder;
-    font-size: 30px;
-  }
-  .choosePieceColor {
-    display: flex;
-    flex-direction: column;
-    .choosePieceColorText {
-      text-align: center;
-    }
-    .button {
-      display: flex;
-      gap: 10px;
-    }
+    margin: 0;
+    font-weight: 700;
+    font-size: clamp(1.75rem, 3vw, 2.2rem);
+    letter-spacing: -0.02em;
   }
   .scoresContainer {
     height: 80px;
@@ -98,18 +102,76 @@
 }
 
 .waitingText {
-  font-size: 1.2rem;
-  color: #666;
+  font-size: 1rem;
+  color: rgba(226, 232, 240, 0.85);
   text-align: center;
-  margin: 1rem 0;
+  margin: 0;
+  line-height: 1.5;
 }
 
 .headerContainer {
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
   width: 100%;
+}
+
+.roomHeaderCard {
+  text-align: center;
+}
+
+.roomMeta {
+  margin: 0.5rem 0 0;
+  color: rgba(148, 163, 184, 0.95);
+  font-size: 0.95rem;
+
+  span {
+    color: #a7f3d0;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+}
+
+.setupCard {
+  width: min(92vw, 420px);
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(8px);
+}
+
+.choosePieceColorText {
+  margin: 0 0 0.9rem;
+  text-align: center;
+  color: rgba(226, 232, 240, 0.95);
+}
+
+.button {
+  display: flex;
+  gap: 0.65rem;
+  justify-content: center;
+
+  button {
+    min-width: 110px;
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(15, 23, 42, 0.85);
+    color: #f8fafc;
+    font-weight: 600;
+    transition: all 0.2s ease;
+
+    &:hover {
+      transform: translateY(-1px);
+      border-color: rgba(52, 211, 153, 0.55);
+      background: rgba(30, 41, 59, 0.95);
+    }
+  }
 }
 
 .homeButton {
@@ -122,9 +184,36 @@
   position: fixed;
   right: 20px;
   top: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: #f8fafc;
+  background: rgba(15, 23, 42, 0.55);
 
   &:hover {
-    background-color: rgba(0, 128, 0, 0.1);
+    background-color: rgba(34, 197, 94, 0.18);
     transform: scale(1.1);
+  }
+}
+
+.saveStatus {
+  margin: 0.5rem 0 1rem;
+  font-size: 0.95rem;
+  color: #cbd5e1;
+}
+
+.newGameButton {
+  padding: 0.7rem 1.2rem;
+  border-radius: 8px;
+  border: 1px solid #4ade80;
+  background: rgba(34, 197, 94, 0.15);
+  color: #f8fafc;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(34, 197, 94, 0.28);
+    transform: translateY(-1px);
   }
 }

@@ -53,6 +53,7 @@ function hydrateUser(raw: unknown): AuthUser | null {
     result: e.result === 'loss' ? 'loss' : 'win',
     myColor: e.myColor === 'black' ? 'black' : 'white',
     roomId: typeof e.roomId === 'string' ? e.roomId : undefined,
+    endReason: typeof e.endReason === 'string' ? e.endReason : undefined,
   }));
   return {
     uid: u.uid,

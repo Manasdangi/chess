@@ -4,25 +4,41 @@ import { ProfileDetails } from '../ProfileDetails';
 import TnC from '../TnC';
 import { PreviousGames } from '../PreviousGames';
 import useAuthStore from '../../Context/useAuthStore';
+import {
+  IoClose,
+  IoPersonOutline,
+  IoGameControllerOutline,
+  IoDocumentTextOutline,
+  IoLogOutOutline,
+} from 'react-icons/io5';
 
 interface RightSideMenuProps {
   onClose: () => void;
 }
 
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  if (parts[0]) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return '?';
+}
+
 const RightSideMenu: React.FC<RightSideMenuProps> = ({ onClose }) => {
-  const [activePage, setActivePage] = React.useState<'profile' | 'previousGames' | 'tnc' | null>(
-    null
-  );
+  const [activePage, setActivePage] = React.useState<'profile' | 'previousGames' | 'tnc' | null>(null);
   const logout = useAuthStore(state => state.logout);
-  const setUser = useAuthStore(state => state.setUser);
+  const user = useAuthStore(state => state.user);
 
   const handleLogout = () => {
-    console.log('Logging out...');
     logout();
-    setUser(null);
     onClose();
-    alert('Logged out successfully');
   };
+
+  const displayName = user?.displayName?.trim() || 'Player';
+  const photoURL = user?.photoURL;
 
   const renderContent = () => {
     switch (activePage) {
@@ -53,49 +69,77 @@ const RightSideMenu: React.FC<RightSideMenuProps> = ({ onClose }) => {
       default:
         return (
           <div className={styles.accountSection}>
-            <div className={styles.profileImageWrapper}>
-              <img
-                src="https://i.pravatar.cc/150?img=3"
-                alt="Profile"
-                className={styles.profileImage}
-              />
+            <div className={styles.profileBlock}>
+              <div className={styles.avatarRing}>
+                {photoURL ? (
+                  <img
+                    src={photoURL}
+                    alt=""
+                    className={styles.profileImage}
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <span className={styles.avatarFallback} aria-hidden>
+                    {initialsFromName(displayName)}
+                  </span>
+                )}
+              </div>
+              <p className={styles.userName}>{displayName}</p>
+              {user?.email && <p className={styles.userEmail}>{user.email}</p>}
             </div>
-            <div
-              className={styles.option}
-              onClick={() => {
-                setActivePage('profile');
-              }}
-            >
-              Profile Details
-            </div>
-            <div
-              className={styles.option}
-              onClick={() => {
-                setActivePage('previousGames');
-              }}
-            >
-              Previous Games
-            </div>
-            <div
-              className={styles.option}
-              onClick={() => {
-                setActivePage('tnc');
-              }}
-            >
-              Terms and Conditions
-            </div>
-            <div className={styles.logoutOption} onClick={handleLogout}>
+
+            <nav className={styles.nav} aria-label="Account">
+              <button
+                type="button"
+                className={styles.navButton}
+                onClick={() => setActivePage('profile')}
+              >
+                <IoPersonOutline className={styles.navIcon} aria-hidden />
+                Profile Details
+              </button>
+              <button
+                type="button"
+                className={styles.navButton}
+                onClick={() => setActivePage('previousGames')}
+              >
+                <IoGameControllerOutline className={styles.navIcon} aria-hidden />
+                Previous Games
+              </button>
+              <button
+                type="button"
+                className={styles.navButton}
+                onClick={() => setActivePage('tnc')}
+              >
+                <IoDocumentTextOutline className={styles.navIcon} aria-hidden />
+                Terms and Conditions
+              </button>
+            </nav>
+
+            <button type="button" className={styles.logoutButton} onClick={handleLogout}>
+              <IoLogOutOutline className={styles.navIcon} aria-hidden />
               Log Out
-            </div>
+            </button>
           </div>
         );
     }
   };
 
+  const showMainChrome = activePage === null;
+
   return (
     <>
-      <div className={styles.rightMenu}>{renderContent()}</div>
-      <div className={styles.overlay} onClick={onClose} />
+      <div className={styles.rightMenu} role="dialog" aria-modal="true" aria-label="Account menu">
+        {showMainChrome && (
+          <div className={styles.drawerHeader}>
+            <h2 className={styles.drawerTitle}>Account</h2>
+            <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Close">
+              <IoClose size={22} />
+            </button>
+          </div>
+        )}
+        <div className={showMainChrome ? styles.drawerBody : styles.drawerBodyFull}>{renderContent()}</div>
+      </div>
+      <div className={styles.overlay} onClick={onClose} aria-hidden />
     </>
   );
 };

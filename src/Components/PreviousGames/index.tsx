@@ -8,6 +8,17 @@ interface IProps {
   onClose: () => void;
 }
 
+function formatEndReason(reason: string): string {
+  const labels: Record<string, string> = {
+    king_capture: 'King capture',
+    opponent_resigned: 'Opponent resigned',
+    opponent_timeout: 'Opponent timed out',
+    clock_timeout: 'Clock',
+    resigned: 'You resigned',
+  };
+  return labels[reason] ?? reason.replace(/_/g, ' ');
+}
+
 export const PreviousGames: React.FC<IProps> = ({ onClose }) => {
   const user = useAuthStore(state => state.user);
   const setGameHistory = useAuthStore(state => state.setGameHistory);
@@ -52,6 +63,9 @@ export const PreviousGames: React.FC<IProps> = ({ onClose }) => {
                     {game.result.toUpperCase()}
                   </span>
                 </div>
+                {game.endReason && (
+                  <div className={styles.endReason}>End: {formatEndReason(game.endReason)}</div>
+                )}
                 <div>Played as: {game.myColor.toUpperCase()}</div>
               </div>
             );

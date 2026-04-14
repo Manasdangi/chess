@@ -20,6 +20,8 @@ export interface GameHistoryEntry {
   result: GameResult;
   myColor: 'white' | 'black';
   roomId?: string;
+  /** How the game ended (optional for older saved rows). */
+  endReason?: string;
 }
 
 function toDate(value: unknown): Date {
@@ -34,6 +36,7 @@ export async function saveGameHistory(uid: string, entry: Omit<GameHistoryEntry,
     result: entry.result,
     myColor: entry.myColor,
     roomId: entry.roomId ?? null,
+    endReason: entry.endReason ?? null,
     playedAt: serverTimestamp(),
   });
   return ref.id;
@@ -55,6 +58,7 @@ export async function fetchGameHistory(uid: string, max = 50): Promise<GameHisto
       result: data.result === 'loss' ? 'loss' : 'win',
       myColor: data.myColor === 'black' ? 'black' : 'white',
       roomId: data.roomId ?? undefined,
+      endReason: data.endReason != null ? String(data.endReason) : undefined,
       playedAt: toDate(data.playedAt).toISOString(),
     };
   });
