@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import socket from '../Socket/socket';
 import { Move } from '../types/chess';
 
@@ -23,6 +23,8 @@ export const useSocket = (
     onAlreadyInRoom: () => void;
   }
 ) => {
+  const joinedSignatureRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!roomId) return;
 
@@ -61,10 +63,14 @@ export const useSocket = (
     socket.on('opponentKingKilled', onOpponentKingKilled);
     socket.on('roomFull', onRoomFull);
     socket.on('alreadyInRoom', onAlreadyInRoom);
-    socket.emit('joinRoom', roomId, {
-      email: joinProfile.email,
-      displayName: joinProfile.displayName,
-    });
+    const joinSignature = `${roomId}::${joinProfile.email}::${joinProfile.displayName}`;
+    if (joinedSignatureRef.current !== joinSignature) {
+      joinedSignatureRef.current = joinSignature;
+      socket.emit('joinRoom', roomId, {
+        email: joinProfile.email,
+        displayName: joinProfile.displayName,
+      });
+    }
 
     return () => {
       socket.off('roomJoined', onRoomJoined);
