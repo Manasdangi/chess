@@ -3,11 +3,17 @@ import styles from './CrossButton.module.scss';
 
 interface CrossButtonProps {
   onClick: () => void;
+  className?: string;
 }
 
-const CrossButton: React.FC<CrossButtonProps> = ({ onClick }) => {
+const CrossButton: React.FC<CrossButtonProps> = ({ onClick, className }) => {
   return (
-    <button className={styles.crossButton} onClick={onClick}>
+    <button
+      type="button"
+      className={[styles.crossButton, className].filter(Boolean).join(' ')}
+      onClick={onClick}
+      aria-label="Close"
+    >
       ×
     </button>
   );

@@ -2,24 +2,38 @@
   background: linear-gradient(135deg, #1a1a1a, #0d0d0d);
   min-height: 100vh;
   color: #e0e0e0;
-  position: relative;
+  padding: 1rem 1rem 1.5rem;
+  box-sizing: border-box;
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
   h2 {
-    text-align: center;
+    margin: 0;
     font-size: 28px;
-    margin-bottom: 30px;
     font-weight: 600;
     color: #ffffff;
     letter-spacing: 1px;
   }
 
+  .closeButton {
+    position: static;
+    flex-shrink: 0;
+  }
+
   .content {
-    max-width: 800px;
+    max-width: 100%;
     margin: 0 auto;
     background: #1f1f1f;
     padding: 30px;
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(255, 255, 255, 0.05);
-    overflow-y: scroll;
+    overflow-y: auto;
 
     p {
       margin-bottom: 16px;

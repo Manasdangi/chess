@@ -8,8 +8,10 @@ interface IProps {
 const TnC: React.FC<IProps> = ({ onClose }) => {
   return (
     <div className={styles.tncPage}>
-      <CrossButton onClick={onClose} />
-      <h2>Terms & Conditions</h2>
+      <div className={styles.header}>
+        <h2>Terms & Conditions</h2>
+        <CrossButton onClick={onClose} className={styles.closeButton} />
+      </div>
       <div className={styles.content}>
         <p>
           Welcome to ChessGame! By using our services, you agree to follow these terms and
