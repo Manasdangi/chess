@@ -31,6 +31,8 @@
 }
 
 .drawerHeader {
+  position: relative;
+  z-index: 1;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -49,6 +51,8 @@
 }
 
 .closeButton {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;

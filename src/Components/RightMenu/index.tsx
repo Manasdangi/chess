@@ -128,6 +128,7 @@ const RightSideMenu: React.FC<RightSideMenuProps> = ({ onClose }) => {
 
   return (
     <>
+      <div className={styles.overlay} onClick={onClose} aria-hidden />
       <div className={styles.rightMenu} role="dialog" aria-modal="true" aria-label="Account menu">
         {showMainChrome && (
           <div className={styles.drawerHeader}>
@@ -139,7 +140,6 @@ const RightSideMenu: React.FC<RightSideMenuProps> = ({ onClose }) => {
         )}
         <div className={showMainChrome ? styles.drawerBody : styles.drawerBodyFull}>{renderContent()}</div>
       </div>
-      <div className={styles.overlay} onClick={onClose} aria-hidden />
     </>
   );
 };
