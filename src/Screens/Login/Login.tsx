@@ -8,7 +8,11 @@ import { FcGoogle } from 'react-icons/fc';
 import loginHero from '../../assets/Gemini_Generated_Image_gohi2qgohi2qgohi.png';
 import styles from './Login.module.scss';
 
-const Login: React.FC = () => {
+interface LoginProps {
+  onContinueAsGuest?: () => void;
+}
+
+const Login: React.FC<LoginProps> = ({ onContinueAsGuest }) => {
   const [isLoading, setIsLoading] = useState(false);
   const setUser = useAuthStore(state => state.setUser);
   const setLoggedIn = useAuthStore(state => state.setLoggedIn);
@@ -115,6 +119,16 @@ const Login: React.FC = () => {
           </span>
           <span className={styles.googleLabel}>Sign in with Google</span>
         </button>
+        {onContinueAsGuest && (
+          <button
+            type="button"
+            className={styles.guestButton}
+            onClick={onContinueAsGuest}
+            disabled={isLoading}
+          >
+            Continue as guest
+          </button>
+        )}
       </div>
     </div>
   );

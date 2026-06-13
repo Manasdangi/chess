@@ -31,7 +31,7 @@ const executeCastling = (
   setPiecesInAttack: React.Dispatch<React.SetStateAction<number[][]>>
 ) => {
   setGrid(prevGrid => {
-    let newGrid = prevGrid.map((r: number[]) => [...r]);
+    const newGrid = prevGrid.map((r: number[]) => [...r]);
 
     const kingStartCol = movingPieceIndex.col;
     const kingRow = movingPieceIndex.row;
@@ -111,8 +111,15 @@ const movePiece = (
   setShowTooltip: React.Dispatch<React.SetStateAction<boolean>>,
   roomId: string
 ) => {
+  const movingPiece = grid[movingPieceIndex.row][movingPieceIndex.col];
+  const targetPiece = grid[row][col];
   if (isCastlingMove(grid, row, col, movingPieceIndex)) {
     executeCastling(roomId, grid, col, movingPieceIndex, setGrid, setValidMoves, setPiecesInAttack);
+    return;
+  }
+  if (movingPiece !== 0 && targetPiece !== 0 && movingPiece * targetPiece > 0) {
+    setValidMoves([[]]);
+    setPiecesInAttack([[]]);
     return;
   }
   let executed = false;
@@ -135,7 +142,7 @@ const movePiece = (
   });
 
   setGrid(prevGrid => {
-    let newGrid = prevGrid.map((r: number[]) => [...r]);
+    const newGrid = prevGrid.map((r: number[]) => [...r]);
     const piece = newGrid[row][col];
 
     if (!executed) {
@@ -178,8 +185,8 @@ const getValidAndAttackingMoves = (
   colStep: number,
   isKingCase: boolean = false
 ): { moves1: number[][]; moves2: number[][] } => {
-  let moves1: number[][] = [[]];
-  let moves2: number[][] = [[]];
+  const moves1: number[][] = [[]];
+  const moves2: number[][] = [[]];
   let newRow = rowIndex + rowStep;
   let newCol = colIndex + colStep;
   while (newRow >= 0 && newRow <= 7 && newCol >= 0 && newCol <= 7) {
@@ -252,7 +259,7 @@ const highLight = (
   ];
   switch (val) {
     case 6:
-    case -6:
+    case -6: {
       let step;
       if ((grid[row][col] > 0 && !isWhitePieceDown) || (grid[row][col] < 0 && isWhitePieceDown))
         step = 1;
@@ -263,13 +270,20 @@ const highLight = (
         if ((row === 1 || row === 6) && isSafe(grid, row + step * 2, col))
           validMoves.push([row + step * 2, col]);
       }
-      if (isBounded(row + step * 1, col - 1) && grid[row + step * 1][col - 1] !== 0) {
+      if (
+        isBounded(row + step * 1, col - 1) &&
+        grid[row + step * 1][col - 1] * grid[row][col] < 0
+      ) {
         attackingMoves.push([row + step * 1, col - 1]);
       }
-      if (isBounded(row + step * 1, col + 1) && grid[row + step * 1][col + 1] !== 0) {
+      if (
+        isBounded(row + step * 1, col + 1) &&
+        grid[row + step * 1][col + 1] * grid[row][col] < 0
+      ) {
         attackingMoves.push([row + step * 1, col + 1]);
       }
       break;
+    }
 
     case 1:
     case -1:
@@ -318,11 +332,12 @@ const highLight = (
       break;
 
     case 4:
-    case -4:
+    case -4: {
       const total_moves2 = getKnightMoves(grid, row, col);
       validMoves = total_moves2.moves1;
       attackingMoves = total_moves2.moves2;
       break;
+    }
 
     case 5:
     case -5:
@@ -431,6 +446,18 @@ export const handleSquareClick = (
     piecesInAttack.some(move => move[0] == row && move[1] == col)
   ) {
     if (movingPieceIndex.row == -1) {
+      return;
+    }
+    const movingPiece = grid[movingPieceIndex.row][movingPieceIndex.col];
+    if (
+      !isCastlingMove(grid, row, col, movingPieceIndex) &&
+      movingPiece !== 0 &&
+      currentPiece !== 0 &&
+      movingPiece * currentPiece > 0
+    ) {
+      setValidMoves([[]]);
+      setPiecesInAttack([[]]);
+      setMovingPieceIndex({ row: -1, col: -1 });
       return;
     }
     setTooltipX(event.clientX);

@@ -10,10 +10,11 @@ import Timer from './Components/Timer';
 import { useParams, useNavigate } from 'react-router-dom';
 import socket from '../../Socket/socket';
 import { useSocket } from '../../hook/useSocket';
-import { FaHome } from 'react-icons/fa';
+import { FaCopy, FaHome } from 'react-icons/fa';
 import useAuthStore from '../../Context/useAuthStore';
 import { saveGameHistory } from '../../services/gameHistory';
 import { Move } from '../../types/chess';
+import { getGuestIdentity } from '../../utils/guestIdentity';
 
 interface EventHandlers {
   onRoomJoined: (data: { isCreator: boolean }) => void;
@@ -66,11 +67,20 @@ const ChessBoard = () => {
   const [historySaveStatus, setHistorySaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>(
     'idle'
   );
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
 
   const historySavedRef = useRef(false);
   const kingKillNotifiedRef = useRef(false);
   /** Set before setWinner so persist can attach Firestore metadata (e.g. king_capture). */
   const gameEndMetaRef = useRef<string | undefined>(undefined);
+  const guestIdentity = useMemo(() => getGuestIdentity(), []);
+  const playerProfile = useMemo(
+    () => ({
+      email: user?.email ?? guestIdentity.email,
+      displayName: user?.displayName?.trim() || guestIdentity.displayName,
+    }),
+    [guestIdentity.displayName, guestIdentity.email, user?.displayName, user?.email]
+  );
 
   useEffect(() => {
     kingKillNotifiedRef.current = false;
@@ -170,11 +180,7 @@ const ChessBoard = () => {
     [user?.uid, opponentEmail, opponentDisplayName, chosenPieceColor, roomId, addGameHistoryEntry]
   );
 
-  useSocket(
-    roomId,
-    { email: user?.email ?? '', displayName: user?.displayName ?? '' },
-    eventHandlers
-  );
+  useSocket(roomId, playerProfile, eventHandlers);
 
   useEffect(() => {
     if (!winner || !chosenPieceColor || !user?.uid) return;
@@ -195,7 +201,6 @@ const ChessBoard = () => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
-    console.log('console', opponentEmail, getSelfColor());
     const id = setInterval(() => {
       if (isBlackMove) {
         setBlackTime(prev => {
@@ -205,7 +210,7 @@ const ChessBoard = () => {
             gameEndMetaRef.current = 'clock_timeout';
             setWinner('white');
             if (chosenPieceColor === 'black') {
-              socket.emit('onOpponentTimeout', roomId, user?.email);
+              socket.emit('onOpponentTimeout', roomId, playerProfile.email);
             }
             return 0;
           }
@@ -219,7 +224,7 @@ const ChessBoard = () => {
             gameEndMetaRef.current = 'clock_timeout';
             setWinner('black');
             if (chosenPieceColor === 'white') {
-              socket.emit('onOpponentTimeout', roomId, user?.email);
+              socket.emit('onOpponentTimeout', roomId, playerProfile.email);
             }
             return 0;
           }
@@ -230,21 +235,13 @@ const ChessBoard = () => {
 
     intervalRef.current = id;
     return () => clearInterval(id);
-  }, [isBlackMove, chosenPieceColor]);
+  }, [isBlackMove, chosenPieceColor, playerProfile.email, roomId]);
 
   useEffect(() => {
     if (chosenPieceColor) {
       setGrid(chosenPieceColor === 'white' ? blackTopWhiteDown : whiteTopBlackDown);
     }
   }, [chosenPieceColor]);
-
-  const getSelfColor = () => {
-    if (chosenPieceColor === 'white') {
-      return isBlackMove ? 'black' : 'white';
-    } else {
-      return isBlackMove ? 'white' : 'black';
-    }
-  };
 
   /** Black king (-1) captured → white wins; white king (1) captured → black wins. */
   useEffect(() => {
@@ -254,12 +251,12 @@ const ChessBoard = () => {
     if (!whiteKingTaken && !blackKingTaken) return;
     if (!kingKillNotifiedRef.current) {
       kingKillNotifiedRef.current = true;
-      socket.emit('onOpponentKingKilled', roomId, user?.email ?? '');
+      socket.emit('onOpponentKingKilled', roomId, playerProfile.email);
     }
     gameEndMetaRef.current = 'king_capture';
     if (whiteKingTaken) setWinner('white');
     else setWinner('black');
-  }, [blackScore, whiteScore, roomId, user?.email, winner]);
+  }, [blackScore, whiteScore, roomId, playerProfile.email, winner]);
 
   const selectPiece = (piece: number) => {
     setValidMoves([[]]);
@@ -364,7 +361,7 @@ const ChessBoard = () => {
 
   const handleHomeClick = async () => {
     if (!window.confirm('Are you sure you want to quit the game?')) return;
-    socket.emit('resign', roomId, user?.email);
+    socket.emit('resign', roomId, playerProfile.email);
     if (chosenPieceColor && user?.uid) {
       historySavedRef.current = false;
       await persistFinishedGame('loss', 'resigned');
@@ -374,6 +371,17 @@ const ChessBoard = () => {
 
   const handleStartNewGame = () => {
     navigate('/');
+  };
+
+  const handleCopyInvite = async () => {
+    if (!roomId) return;
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/room/${roomId}`);
+      setCopyStatus('copied');
+    } catch {
+      setCopyStatus('failed');
+    }
+    window.setTimeout(() => setCopyStatus('idle'), 1800);
   };
 
   if (winner) {
@@ -401,6 +409,14 @@ const ChessBoard = () => {
           <p className={styles.roomMeta}>
             Room ID: <span>{roomId}</span>
           </p>
+          <button className={styles.copyInviteButton} type="button" onClick={handleCopyInvite}>
+            <FaCopy size={14} />
+            {copyStatus === 'copied'
+              ? 'Copied'
+              : copyStatus === 'failed'
+                ? 'Copy failed'
+                : 'Copy invite link'}
+          </button>
         </div>
         <button className={styles.homeButton} onClick={handleHomeClick}>
           <FaHome size={24} />

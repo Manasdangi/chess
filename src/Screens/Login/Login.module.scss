@@ -164,3 +164,38 @@
 .googleLabel {
   line-height: 1.25;
 }
+
+.guestButton {
+  margin-top: 0.9rem;
+  padding: 0.55rem 1rem;
+  font-family:
+    'Outfit',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(240, 253, 244, 0.92);
+  background: transparent;
+  border: 1px solid rgba(240, 253, 244, 0.35);
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.guestButton:hover {
+  background: rgba(240, 253, 244, 0.12);
+  border-color: rgba(240, 253, 244, 0.55);
+}
+
+.guestButton:focus-visible {
+  outline: 2px solid #86efac;
+  outline-offset: 2px;
+}
+
+.guestButton:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}

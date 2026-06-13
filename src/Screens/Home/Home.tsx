@@ -8,6 +8,7 @@ import Login from '../Login/Login';
 import { GiHamburgerMenu } from 'react-icons/gi';
 import { FaChessKnight } from 'react-icons/fa6';
 import RightSideMenu from '../../Components/RightMenu';
+import { getGuestIdentity } from '../../utils/guestIdentity';
 
 export default function Home() {
   const [roomId, setRoomId] = useState('');
@@ -16,9 +17,14 @@ export default function Home() {
   const [popupMessage, setPopupMessage] = useState('');
   const [popupType, setPopupType] = useState<'success' | 'error'>('success');
   const [showMenu, setShowMenu] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
   const navigate = useNavigate();
 
   const { isLoggedIn, user } = useAuthStore();
+  const guestIdentity = getGuestIdentity();
+  const displayName = isLoggedIn
+    ? user?.displayName?.trim() || 'Player'
+    : guestIdentity.displayName;
 
   const showMessage = (message: string, type: 'success' | 'error' = 'success') => {
     setPopupMessage(message);
@@ -26,17 +32,31 @@ export default function Home() {
     setShowPopup(true);
   };
 
+  const getRoomIdFromInput = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+
+    try {
+      const url = new URL(trimmed);
+      const roomFromPath = url.pathname.split('/').filter(Boolean).pop();
+      return roomFromPath?.trim() ?? '';
+    } catch {
+      return trimmed;
+    }
+  };
+
   const handleJoin = () => {
-    if (!roomId) {
+    const nextRoomId = getRoomIdFromInput(roomId);
+    if (!nextRoomId) {
       showMessage('Please enter a room ID', 'error');
       return;
     }
 
-    socket.emit('checkRoom', roomId, (exists: boolean) => {
+    socket.emit('checkRoom', nextRoomId, (exists: boolean) => {
       if (exists) {
-        console.log('joining room', roomId);
+        console.log('joining room', nextRoomId);
         showMessage('Joining room...');
-        navigate(`/room/${roomId}`);
+        navigate(`/room/${nextRoomId}`);
       } else {
         showMessage('Room does not exist', 'error');
       }
@@ -57,28 +77,40 @@ export default function Home() {
     });
   };
 
-  if (!isLoggedIn) return <Login />;
+  if (showLogin && !isLoggedIn) return <Login onContinueAsGuest={() => setShowLogin(false)} />;
 
   return (
     <>
       <div className={styles.page}>
-        <button
-          type="button"
-          className={styles.menuButton}
-          aria-label="Open menu"
-          onClick={() => setShowMenu(true)}
-        >
-          <GiHamburgerMenu size={22} />
-        </button>
+        {isLoggedIn ? (
+          <button
+            type="button"
+            className={styles.menuButton}
+            aria-label="Open menu"
+            onClick={() => setShowMenu(true)}
+          >
+            <GiHamburgerMenu size={22} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={styles.signInButton}
+            onClick={() => setShowLogin(true)}
+          >
+            Sign in
+          </button>
+        )}
 
         <main className={styles.card}>
           <header className={styles.cardHeader}>
             <span className={styles.brandMark} aria-hidden>
               <FaChessKnight />
             </span>
-            <p className={styles.greeting}>Welcome, {user?.displayName}</p>
+            <p className={styles.greeting}>Welcome, {displayName}</p>
             <h1 className={styles.title}>Play Chess Online</h1>
-            <p className={styles.subtitle}>Join a friend&apos;s room or start a new board in one click.</p>
+            <p className={styles.subtitle}>
+              Join a friend&apos;s room or start a new board in one click.
+            </p>
           </header>
 
           <div className={styles.joinBlock}>
@@ -89,7 +121,7 @@ export default function Home() {
               <input
                 id="room-id"
                 className={styles.roomInput}
-                placeholder="Enter room ID"
+                placeholder="Enter room ID or invite link"
                 value={roomId}
                 onChange={e => {
                   setRoomId(e.target.value);
