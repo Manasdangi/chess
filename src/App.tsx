@@ -9,6 +9,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/room/:roomId" element={<ChessBoard />} />
+        <Route path="/bot" element={<ChessBoard mode="bot" />} />
         <Route
           path="*"
           element={

@@ -9,6 +9,11 @@ import { GiHamburgerMenu } from 'react-icons/gi';
 import { FaChessKnight } from 'react-icons/fa6';
 import RightSideMenu from '../../Components/RightMenu';
 import { getGuestIdentity } from '../../utils/guestIdentity';
+import {
+  BOT_DIFFICULTIES,
+  BOT_DIFFICULTY_LABELS,
+  type BotDifficulty,
+} from '../../utils/stockfishBot';
 
 function waitForSocketConnection(timeoutMs = 5000): Promise<boolean> {
   if (socket.connected) return Promise.resolve(true);
@@ -58,6 +63,7 @@ export default function Home() {
   const [showLogin, setShowLogin] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
+  const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('medium');
   const navigate = useNavigate();
 
   const { isLoggedIn, user } = useAuthStore();
@@ -147,6 +153,10 @@ export default function Home() {
     showMessage('Could not create a unique room. Please try again.', 'error');
   };
 
+  const handlePlayBot = () => {
+    navigate(`/bot?difficulty=${botDifficulty}`);
+  };
+
   if (showLogin && !isLoggedIn) return <Login onContinueAsGuest={() => setShowLogin(false)} />;
 
   return (
@@ -162,11 +172,7 @@ export default function Home() {
             <GiHamburgerMenu size={22} />
           </button>
         ) : (
-          <button
-            type="button"
-            className={styles.signInButton}
-            onClick={() => setShowLogin(true)}
-          >
+          <button type="button" className={styles.signInButton} onClick={() => setShowLogin(true)}>
             Sign in
           </button>
         )}
@@ -177,21 +183,23 @@ export default function Home() {
               <FaChessKnight />
             </span>
             <p className={styles.greeting}>Welcome, {displayName}</p>
-            <h1 className={styles.title}>Play Chess Online</h1>
-            <p className={styles.subtitle}>
-              Join a friend&apos;s room or start a new board in one click.
-            </p>
+            <h1 className={styles.title}>Choose Game Mode</h1>
           </header>
 
-          <div className={styles.joinBlock}>
-            <label htmlFor="room-id" className={styles.visuallyHidden}>
-              Room ID
-            </label>
-            <div className={styles.inputGroup}>
+          <div className={styles.modeGrid}>
+            <section className={styles.modeCard}>
+              <div className={styles.modeHeader}>
+                <h2>Play Online</h2>
+                <p>Use a room with another player.</p>
+              </div>
+
+              <label htmlFor="room-id" className={styles.fieldLabel}>
+                Room ID or invite link
+              </label>
               <input
                 id="room-id"
                 className={styles.roomInput}
-                placeholder="Enter room ID or invite link"
+                placeholder="abc123"
                 value={roomId}
                 onChange={e => {
                   setRoomId(e.target.value);
@@ -203,33 +211,56 @@ export default function Home() {
                 autoComplete="off"
                 spellCheck={false}
               />
-              <button
-                type="button"
-                className={styles.joinButton}
-                onClick={handleJoin}
-                disabled={isJoiningRoom}
+
+              <div className={styles.onlineActions}>
+                <button
+                  type="button"
+                  className={styles.joinButton}
+                  onClick={handleJoin}
+                  disabled={isJoiningRoom}
+                >
+                  {isJoiningRoom ? 'Joining...' : 'Join Room'}
+                </button>
+                <button
+                  type="button"
+                  className={styles.createButton}
+                  onClick={handleCreate}
+                  disabled={isCreatingRoom}
+                >
+                  {isCreatingRoom ? 'Creating...' : 'Create Room'}
+                </button>
+              </div>
+            </section>
+
+            <section className={`${styles.modeCard} ${styles.botModeCard}`}>
+              <div className={styles.modeHeader}>
+                <h2>Play Bot</h2>
+                <p>Practice against Stockfish.</p>
+              </div>
+
+              <label htmlFor="bot-difficulty" className={styles.fieldLabel}>
+                Difficulty
+              </label>
+              <select
+                id="bot-difficulty"
+                className={styles.botSelect}
+                value={botDifficulty}
+                onChange={e => setBotDifficulty(e.target.value as BotDifficulty)}
               >
-                {isJoiningRoom ? 'Joining...' : 'Join Game'}
+                {BOT_DIFFICULTIES.map(level => (
+                  <option key={level} value={level}>
+                    {BOT_DIFFICULTY_LABELS[level]}
+                  </option>
+                ))}
+              </select>
+
+              <button type="button" className={styles.botButton} onClick={handlePlayBot}>
+                Start Bot Game
               </button>
-            </div>
+            </section>
           </div>
 
           {error && <p className={styles.error}>{error}</p>}
-
-          <div className={styles.divider} role="separator">
-            <span className={styles.dividerLine} />
-            <span className={styles.dividerText}>or</span>
-            <span className={styles.dividerLine} />
-          </div>
-
-          <button
-            type="button"
-            className={styles.createButton}
-            onClick={handleCreate}
-            disabled={isCreatingRoom}
-          >
-            {isCreatingRoom ? 'Creating...' : 'Create New Game'}
-          </button>
         </main>
 
         {showPopup && (
