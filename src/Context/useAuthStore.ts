@@ -50,7 +50,7 @@ function hydrateUser(raw: unknown): AuthUser | null {
         : new Date(String(e.playedAt ?? Date.now())).toISOString(),
     opponentEmail: String(e.opponentEmail ?? ''),
     opponentDisplayName: String(e.opponentDisplayName ?? ''),
-    result: e.result === 'loss' ? 'loss' : 'win',
+    result: e.result === 'loss' ? 'loss' : e.result === 'draw' ? 'draw' : 'win',
     myColor: e.myColor === 'black' ? 'black' : 'white',
     roomId: typeof e.roomId === 'string' ? e.roomId : undefined,
     endReason: typeof e.endReason === 'string' ? e.endReason : undefined,

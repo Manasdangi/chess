@@ -4,13 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "npm run dev:backend & vite",
+    "dev:frontend": "vite",
+    "dev:backend": "npm --prefix chess-backend start",
     "build": "tsc && vite build",
-    "start": "node dist/server/index.js",
+    "start": "npm --prefix chess-backend start",
     "build:server": "tsc -p tsconfig.server.json",
     "lint": "eslint .",
     "preview": "vite preview",
-    "dev:server": "NODE_ENV=development NODE_NO_WARNINGS=1 ts-node --esm server/index.ts",
+    "dev:server": "npm --prefix chess-backend start",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss}\"",
     "postinstall": "npm run build:server"
   },
@@ -20,6 +22,7 @@
     "@types/express": "^5.0.1",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
+    "chess.js": "^1.4.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "express-openid-connect": "^2.18.0",
@@ -31,6 +34,7 @@
     "react-router-dom": "^7.5.0",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
+    "stockfish": "^18.0.8",
     "zustand": "^5.0.3"
   },
   "devDependencies": {

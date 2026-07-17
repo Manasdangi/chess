@@ -4,8 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import RenderPieces from './Components/RenderPieces';
 import ToolTip from './Components/ToolTip';
 import pieceImages, { classNames, pieceMap } from '../../utils/Util';
-import { handleSquareClick } from '../../utils/ChessBoardUtils';
-import { blackTopWhiteDown, whiteTopBlackDown } from '../../constants';
+import {
+  gridFromFen,
+  handleSquareClick,
+  INITIAL_FEN,
+  PendingPromotionMove,
+  pieceCodeToPromotionPiece,
+  PromotionPiece,
+  turnFromFen,
+} from '../../utils/ChessBoardUtils';
 import Timer from './Components/Timer';
 import { useParams, useNavigate } from 'react-router-dom';
 import socket from '../../Socket/socket';
@@ -13,14 +20,18 @@ import { useSocket } from '../../hook/useSocket';
 import { FaCopy, FaHome } from 'react-icons/fa';
 import useAuthStore from '../../Context/useAuthStore';
 import { saveGameHistory } from '../../services/gameHistory';
-import { Move } from '../../types/chess';
+import { CaptureState, ClockState, GameStatus, ServerMovePayload } from '../../types/chess';
 import { getGuestIdentity } from '../../utils/guestIdentity';
 
 interface EventHandlers {
   onRoomJoined: (data: { isCreator: boolean }) => void;
   onOpponentJoined: (payload: { opponentEmail: string; opponentDisplayName: string }) => void;
   onOpponentChoosePieceColor: (color: 'white' | 'black') => void;
-  onOpponentMove: (move: Move) => void;
+  onMoveAccepted: (payload: ServerMovePayload) => void;
+  onMoveRejected: (payload: { message: string }) => void;
+  onOpponentMove: (payload: ServerMovePayload) => void;
+  onClockUpdate: (payload: ClockState) => void;
+  onGameOver: (payload: GameStatus & ClockState & CaptureState & { fen: string }) => void;
   onOpponentScore: (score: number[], color: 'white' | 'black') => void;
   onOpponentResign: () => void;
   onOpponentTimeout: () => void;
@@ -33,15 +44,12 @@ const ChessBoard = () => {
   const { user, addGameHistoryEntry } = useAuthStore();
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const [grid, setGrid] = useState<number[][]>([[]]);
+  const [gameFen, setGameFen] = useState(INITIAL_FEN);
+  const [grid, setGrid] = useState<number[][]>(() => gridFromFen(INITIAL_FEN, true));
   const [chosenPieceColor, setChosenPieceColor] = useState<'white' | 'black' | null>(null);
   const [opponentEmail, setOpponentEmail] = useState<string | null>(null);
   const [opponentDisplayName, setOpponentDisplayName] = useState('');
   const [isBlackMove, setIsBlackMove] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState({
-    rowIndex: 0,
-    colIndex: 0,
-  });
   // Tooltip position
   const [tooltipX, setTooltipX] = useState(0);
   const [tooltipY, setTooltipY] = useState(0);
@@ -61,7 +69,7 @@ const ChessBoard = () => {
   });
   const [whiteTime, setWhiteTime] = useState(10 * 60);
   const [blackTime, setBlackTime] = useState(10 * 60);
-  const [winner, setWinner] = useState<'white' | 'black' | null>(null);
+  const [winner, setWinner] = useState<'white' | 'black' | 'draw' | null>(null);
   const [isCreator, setIsCreator] = useState(false);
   const [opponentJoined, setOpponentJoined] = useState(false);
   const [historySaveStatus, setHistorySaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>(
@@ -70,9 +78,9 @@ const ChessBoard = () => {
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
 
   const historySavedRef = useRef(false);
-  const kingKillNotifiedRef = useRef(false);
   /** Set before setWinner so persist can attach Firestore metadata (e.g. king_capture). */
   const gameEndMetaRef = useRef<string | undefined>(undefined);
+  const pendingPromotionMoveRef = useRef<PendingPromotionMove | null>(null);
   const guestIdentity = useMemo(() => getGuestIdentity(), []);
   const playerProfile = useMemo(
     () => ({
@@ -83,8 +91,52 @@ const ChessBoard = () => {
   );
 
   useEffect(() => {
-    kingKillNotifiedRef.current = false;
+    historySavedRef.current = false;
+    gameEndMetaRef.current = undefined;
+    pendingPromotionMoveRef.current = null;
+    setGameFen(INITIAL_FEN);
+    setBlackScore([]);
+    setWhiteScore([]);
+    setWhiteTime(10 * 60);
+    setBlackTime(10 * 60);
+    setWinner(null);
   }, [roomId]);
+
+  const applyClockState = useCallback((payload: ClockState) => {
+    setWhiteTime(payload.whiteTime);
+    setBlackTime(payload.blackTime);
+  }, []);
+
+  const applyCaptureState = useCallback((payload: CaptureState) => {
+    setWhiteScore(payload.whiteScore);
+    setBlackScore(payload.blackScore);
+  }, []);
+
+  const applyGameStatus = useCallback((status: GameStatus) => {
+    if (!status.isGameOver) return;
+    gameEndMetaRef.current = status.endReason;
+    setWinner(status.winner);
+  }, []);
+
+  const applyServerMovePayload = useCallback(
+    (payload: ServerMovePayload) => {
+      setGameFen(payload.fen);
+      applyClockState(payload);
+      applyCaptureState(payload);
+      applyGameStatus(payload.status);
+    },
+    [applyCaptureState, applyClockState, applyGameStatus]
+  );
+
+  const applyGameOverPayload = useCallback(
+    (payload: GameStatus & ClockState & CaptureState & { fen: string }) => {
+      setGameFen(payload.fen);
+      applyClockState(payload);
+      applyCaptureState(payload);
+      applyGameStatus(payload);
+    },
+    [applyCaptureState, applyClockState, applyGameStatus]
+  );
 
   const eventHandlers: EventHandlers = useMemo(
     () => ({
@@ -96,16 +148,17 @@ const ChessBoard = () => {
       },
       onOpponentChoosePieceColor: color => {
         setChosenPieceColor(color === 'white' ? 'black' : 'white');
+        setGameFen(INITIAL_FEN);
+        setBlackScore([]);
+        setWhiteScore([]);
       },
-      onOpponentMove: move => {
-        setIsBlackMove(move.piece > 0);
-        setGrid(prevGrid => {
-          const newGrid = prevGrid.map(row => [...row]);
-          newGrid[7 - move.from.row][7 - move.from.col] = 0;
-          newGrid[7 - move.to.row][7 - move.to.col] = move.piece;
-          return newGrid;
-        });
+      onMoveAccepted: applyServerMovePayload,
+      onMoveRejected: payload => {
+        alert(payload.message || 'Illegal move rejected by server.');
       },
+      onOpponentMove: applyServerMovePayload,
+      onClockUpdate: applyClockState,
+      onGameOver: applyGameOverPayload,
       onOpponentScore: (score, color) => {
         if (color === 'white') setWhiteScore(score);
         else setBlackScore(score);
@@ -130,15 +183,15 @@ const ChessBoard = () => {
         );
       },
       onOpponentKingKilled: () => {
-        gameEndMetaRef.current = 'king_capture';
+        gameEndMetaRef.current = 'king_capture_legacy';
         setWinner(chosenPieceColor === 'white' ? 'black' : 'white');
       },
     }),
-    [chosenPieceColor, navigate]
+    [applyClockState, applyGameOverPayload, applyServerMovePayload, chosenPieceColor, navigate]
   );
 
   const persistFinishedGame = useCallback(
-    async (result: 'win' | 'loss', endReason?: string) => {
+    async (result: 'win' | 'loss' | 'draw', endReason?: string) => {
       if (historySavedRef.current || !user?.uid || !chosenPieceColor) return false;
       historySavedRef.current = true;
       const playedAt = new Date().toISOString();
@@ -184,7 +237,7 @@ const ChessBoard = () => {
 
   useEffect(() => {
     if (!winner || !chosenPieceColor || !user?.uid) return;
-    const result = winner === chosenPieceColor ? 'win' : 'loss';
+    const result = winner === 'draw' ? 'draw' : winner === chosenPieceColor ? 'win' : 'loss';
     const endMeta = gameEndMetaRef.current;
     gameEndMetaRef.current = undefined;
     setHistorySaveStatus('saving');
@@ -194,78 +247,33 @@ const ChessBoard = () => {
     });
   }, [winner, chosenPieceColor, user?.uid, persistFinishedGame]);
 
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   useEffect(() => {
+    setIsBlackMove(turnFromFen(gameFen) === 'black');
     if (!chosenPieceColor) return;
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-    const id = setInterval(() => {
-      if (isBlackMove) {
-        setBlackTime(prev => {
-          if (prev < 1) {
-            clearInterval(id);
-            intervalRef.current = null;
-            gameEndMetaRef.current = 'clock_timeout';
-            setWinner('white');
-            if (chosenPieceColor === 'black') {
-              socket.emit('onOpponentTimeout', roomId, playerProfile.email);
-            }
-            return 0;
-          }
-          return prev - 1;
-        });
-      } else {
-        setWhiteTime(prev => {
-          if (prev < 1) {
-            clearInterval(id);
-            intervalRef.current = null;
-            gameEndMetaRef.current = 'clock_timeout';
-            setWinner('black');
-            if (chosenPieceColor === 'white') {
-              socket.emit('onOpponentTimeout', roomId, playerProfile.email);
-            }
-            return 0;
-          }
-          return prev - 1;
-        });
-      }
-    }, 1000);
+    const isWhitePieceDown = chosenPieceColor === 'white';
+    setGrid(gridFromFen(gameFen, isWhitePieceDown));
+  }, [chosenPieceColor, gameFen]);
 
-    intervalRef.current = id;
-    return () => clearInterval(id);
-  }, [isBlackMove, chosenPieceColor, playerProfile.email, roomId]);
-
-  useEffect(() => {
-    if (chosenPieceColor) {
-      setGrid(chosenPieceColor === 'white' ? blackTopWhiteDown : whiteTopBlackDown);
-    }
-  }, [chosenPieceColor]);
-
-  /** Black king (-1) captured → white wins; white king (1) captured → black wins. */
-  useEffect(() => {
-    if (!roomId || winner) return;
-    const whiteKingTaken = whiteScore.includes(-1);
-    const blackKingTaken = blackScore.includes(1);
-    if (!whiteKingTaken && !blackKingTaken) return;
-    if (!kingKillNotifiedRef.current) {
-      kingKillNotifiedRef.current = true;
-      socket.emit('onOpponentKingKilled', roomId, playerProfile.email);
-    }
-    gameEndMetaRef.current = 'king_capture';
-    if (whiteKingTaken) setWinner('white');
-    else setWinner('black');
-  }, [blackScore, whiteScore, roomId, playerProfile.email, winner]);
+  const sendMove = useCallback(
+    (move: PendingPromotionMove, promotion?: PromotionPiece) => {
+      if (!roomId) return;
+      socket.emit('move', {
+        roomId,
+        move: {
+          ...move,
+          promotion,
+        },
+      });
+    },
+    [roomId]
+  );
 
   const selectPiece = (piece: number) => {
-    setValidMoves([[]]);
-    setPiecesInAttack([[]]);
-    setGrid(prevGrid => {
-      const newGrid = prevGrid.map(row => [...row]);
-      newGrid[currentIndex.rowIndex][currentIndex.colIndex] = piece;
-      return newGrid;
-    });
+    const pendingMove = pendingPromotionMoveRef.current;
+    if (pendingMove) {
+      sendMove(pendingMove, pieceCodeToPromotionPiece(piece));
+      pendingPromotionMoveRef.current = null;
+    }
     setShowTooltip(false);
   };
 
@@ -274,7 +282,6 @@ const ChessBoard = () => {
     rowIndex: number,
     colIndex: number
   ) => {
-    setCurrentIndex({ rowIndex, colIndex });
     if (
       (chosenPieceColor === 'white' && isBlackMove) ||
       (chosenPieceColor === 'black' && !isBlackMove)
@@ -284,28 +291,26 @@ const ChessBoard = () => {
     }
 
     handleSquareClick(
-      e,
-      grid,
-      rowIndex,
-      colIndex,
-      setGrid,
-      movingPieceIndex,
-      setMovingPieceIndex,
-      validMoves,
-      setValidMoves,
-      piecesInAttack,
-      setPiecesInAttack,
-      blackScore,
-      whiteScore,
-      setBlackScore,
-      setWhiteScore,
-      setTooltipX,
-      setTooltipY,
-      setShowTooltip,
-      isBlackMove,
-      setIsBlackMove,
-      chosenPieceColor === 'white',
-      roomId || ''
+      {
+        event: e,
+        fen: gameFen,
+        row: rowIndex,
+        col: colIndex,
+        movingPieceIndex,
+        setMovingPieceIndex,
+        validMoves,
+        setValidMoves,
+        piecesInAttack,
+        setPiecesInAttack,
+        setTooltipX,
+        setTooltipY,
+        setShowTooltip,
+        isWhitePieceDown: chosenPieceColor === 'white',
+        onMoveReady: sendMove,
+        onPromotionRequired: move => {
+          pendingPromotionMoveRef.current = move;
+        },
+      }
     );
   };
 
@@ -313,9 +318,9 @@ const ChessBoard = () => {
     <div className={styles.scoreContainer}>
       <p>{bg === 'white' ? 'White' : 'Black'} Points:</p>
       <div className={styles.capturedPieces} style={{ backgroundColor: bg }}>
-        {score.map(pieceIndex => (
+        {score.map((pieceIndex, index) => (
           <img
-            key={pieceIndex}
+            key={`${pieceIndex}-${index}`}
             src={pieceImages[pieceMap[pieceIndex]]}
             height={10}
             width={10}
@@ -388,7 +393,9 @@ const ChessBoard = () => {
     return (
       <div className={styles.container}>
         <p className={styles.header}>Game Over</p>
-        <p className={styles.winner}>{winner.toUpperCase()} wins</p>
+        <p className={styles.winner}>
+          {winner === 'draw' ? 'DRAW' : `${winner.toUpperCase()} wins`}
+        </p>
         <p className={styles.saveStatus}>
           {historySaveStatus === 'saving' && 'Saving game history...'}
           {historySaveStatus === 'saved' && 'Game history saved.'}
@@ -432,6 +439,9 @@ const ChessBoard = () => {
                   <button
                     onClick={() => {
                       setChosenPieceColor('black');
+                      setGameFen(INITIAL_FEN);
+                      setBlackScore([]);
+                      setWhiteScore([]);
                       socket.emit('choosePieceColor', roomId, 'black');
                     }}
                   >
@@ -440,6 +450,9 @@ const ChessBoard = () => {
                   <button
                     onClick={() => {
                       setChosenPieceColor('white');
+                      setGameFen(INITIAL_FEN);
+                      setBlackScore([]);
+                      setWhiteScore([]);
                       socket.emit('choosePieceColor', roomId, 'white');
                     }}
                   >
@@ -464,7 +477,12 @@ const ChessBoard = () => {
           {renderChessBoard()}
           <Timer {...{ chosenPieceColor, blackTime, whiteTime, position: 'bottom' }} />
           {showTooltip && (
-            <ToolTip x={tooltipX} y={tooltipY} showBlack={isBlackMove} selectPiece={selectPiece} />
+            <ToolTip
+              x={tooltipX}
+              y={tooltipY}
+              showBlack={chosenPieceColor === 'black'}
+              selectPiece={selectPiece}
+            />
           )}
         </>
       )}

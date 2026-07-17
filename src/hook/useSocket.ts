@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import socket from '../Socket/socket';
-import { Move } from '../types/chess';
+import { CaptureState, ClockState, GameStatus, ServerMovePayload } from '../types/chess';
 
 export type OpponentJoinedPayload = {
   opponentEmail: string;
@@ -14,7 +14,11 @@ export const useSocket = (
     onRoomJoined: (data: { isCreator: boolean }) => void;
     onOpponentJoined: (payload: OpponentJoinedPayload) => void;
     onOpponentChoosePieceColor: (color: 'white' | 'black') => void;
-    onOpponentMove: (move: Move) => void;
+    onMoveAccepted: (payload: ServerMovePayload) => void;
+    onMoveRejected: (payload: { message: string }) => void;
+    onOpponentMove: (payload: ServerMovePayload) => void;
+    onClockUpdate: (payload: ClockState) => void;
+    onGameOver: (payload: GameStatus & ClockState & CaptureState & { fen: string }) => void;
     onOpponentScore: (score: number[], color: 'white' | 'black') => void;
     onOpponentResign: () => void;
     onOpponentTimeout: () => void;
@@ -32,7 +36,11 @@ export const useSocket = (
       onRoomJoined,
       onOpponentJoined,
       onOpponentChoosePieceColor,
+      onMoveAccepted,
+      onMoveRejected,
       onOpponentMove,
+      onClockUpdate,
+      onGameOver,
       onOpponentScore,
       onOpponentResign,
       onOpponentTimeout,
@@ -56,8 +64,12 @@ export const useSocket = (
       }
     });
     socket.on('opponentChoosePieceColor', onOpponentChoosePieceColor);
+    socket.on('moveAccepted', onMoveAccepted);
+    socket.on('moveRejected', onMoveRejected);
     socket.on('newOpponentScore', onOpponentScore);
     socket.on('opponentMove', onOpponentMove);
+    socket.on('clockUpdate', onClockUpdate);
+    socket.on('gameOver', onGameOver);
     socket.on('opponentResign', onOpponentResign);
     socket.on('opponentTimeout', onOpponentTimeout);
     socket.on('opponentKingKilled', onOpponentKingKilled);
@@ -76,7 +88,11 @@ export const useSocket = (
       socket.off('roomJoined', onRoomJoined);
       socket.off('opponentJoined');
       socket.off('opponentChoosePieceColor', onOpponentChoosePieceColor);
+      socket.off('moveAccepted', onMoveAccepted);
+      socket.off('moveRejected', onMoveRejected);
       socket.off('opponentMove', onOpponentMove);
+      socket.off('clockUpdate', onClockUpdate);
+      socket.off('gameOver', onGameOver);
       socket.off('newOpponentScore', onOpponentScore);
       socket.off('opponentResign', onOpponentResign);
       socket.off('opponentTimeout', onOpponentTimeout);

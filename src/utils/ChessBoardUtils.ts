@@ -1,496 +1,242 @@
-import socket from '../Socket/socket';
+import { Chess, type Color, type Move as ChessMove, type PieceSymbol, type Square } from 'chess.js';
 
-const isSafe = (grid: number[][], row: number, col: number, checkNull: boolean = true) => {
-  if (row < 0 || row > 7 || col < 0 || col > 7 || (checkNull && grid[row][col] != 0)) return false;
-  else return true;
+export type PromotionPiece = 'q' | 'r' | 'b' | 'n';
+export type PlayerColor = 'white' | 'black';
+
+export interface PendingPromotionMove {
+  from: Square;
+  to: Square;
+}
+
+interface HandleSquareClickArgs {
+  event: React.MouseEvent<HTMLDivElement, MouseEvent>;
+  fen: string;
+  row: number;
+  col: number;
+  movingPieceIndex: { row: number; col: number };
+  setMovingPieceIndex: React.Dispatch<React.SetStateAction<{ row: number; col: number }>>;
+  validMoves: number[][];
+  piecesInAttack: number[][];
+  setValidMoves: React.Dispatch<React.SetStateAction<number[][]>>;
+  setPiecesInAttack: React.Dispatch<React.SetStateAction<number[][]>>;
+  setTooltipX: React.Dispatch<React.SetStateAction<number>>;
+  setTooltipY: React.Dispatch<React.SetStateAction<number>>;
+  setShowTooltip: React.Dispatch<React.SetStateAction<boolean>>;
+  isWhitePieceDown: boolean;
+  onMoveReady: (move: PendingPromotionMove, promotion?: PromotionPiece) => void;
+  onPromotionRequired: (move: PendingPromotionMove) => void;
+}
+
+const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] as const;
+
+const PIECE_TO_CODE: Record<PieceSymbol, number> = {
+  k: 1,
+  q: 2,
+  b: 3,
+  n: 4,
+  r: 5,
+  p: 6,
 };
 
-const isCastlingMove = (
-  grid: number[][],
-  row: number,
-  col: number,
-  movingPieceIndex: { row: number; col: number }
-) => {
-  const currentPiece = grid[row][col];
-  const movingPiece = grid[movingPieceIndex.row][movingPieceIndex.col];
-  if (!(row == 0 || row == 7)) return false;
-  if (!(movingPieceIndex.row == 0 || movingPieceIndex.row == 7)) return false;
-  if (row !== movingPieceIndex.row) return false;
-  if (!(currentPiece === 5 || currentPiece === -5)) return false;
-  if (!(movingPiece === 1 || movingPiece === -1)) return false;
-  return true;
+const STARTING_COUNTS: Record<number, number> = {
+  1: 1,
+  2: 1,
+  3: 2,
+  4: 2,
+  5: 2,
+  6: 8,
+  [-1]: 1,
+  [-2]: 1,
+  [-3]: 2,
+  [-4]: 2,
+  [-5]: 2,
+  [-6]: 8,
 };
 
-const executeCastling = (
-  roomId: string,
-  grid: number[][],
-  col: number,
-  movingPieceIndex: { row: number; col: number },
-  setGrid: React.Dispatch<React.SetStateAction<number[][]>>,
-  setValidMoves: React.Dispatch<React.SetStateAction<number[][]>>,
-  setPiecesInAttack: React.Dispatch<React.SetStateAction<number[][]>>
-) => {
-  setGrid(prevGrid => {
-    const newGrid = prevGrid.map((r: number[]) => [...r]);
+export const INITIAL_FEN = new Chess().fen();
 
-    const kingStartCol = movingPieceIndex.col;
-    const kingRow = movingPieceIndex.row;
+export function turnFromFen(fen: string): PlayerColor {
+  return fen.split(' ')[1] === 'b' ? 'black' : 'white';
+}
 
-    const isKingside = col > kingStartCol;
+export function winnerFromCheckmateFen(fen: string): PlayerColor | null {
+  const chess = new Chess(fen);
+  if (!chess.isCheckmate()) return null;
+  return chess.turn() === 'w' ? 'black' : 'white';
+}
 
-    let from1, to1, from2, to2;
+function pieceCode(piece: { color: Color; type: PieceSymbol }): number {
+  const code = PIECE_TO_CODE[piece.type];
+  return piece.color === 'w' ? code : -code;
+}
 
-    if (isKingside) {
-      // Kingside Castling
-      newGrid[kingRow][kingStartCol + 2] = newGrid[kingRow][kingStartCol]; // move king
-      newGrid[kingRow][kingStartCol] = 0;
+export function toBoardSquare(row: number, col: number, isWhitePieceDown: boolean): Square {
+  const file = isWhitePieceDown ? FILES[col] : FILES[7 - col];
+  const rank = isWhitePieceDown ? 8 - row : row + 1;
+  return `${file}${rank}` as Square;
+}
 
-      newGrid[kingRow][kingStartCol + 1] = newGrid[kingRow][7]; // move rook
-      newGrid[kingRow][7] = 0;
+export function squareToBoardIndex(square: Square, isWhitePieceDown: boolean) {
+  const fileIndex = FILES.indexOf(square[0] as (typeof FILES)[number]);
+  const rank = Number(square[1]);
+  return isWhitePieceDown
+    ? { row: 8 - rank, col: fileIndex }
+    : { row: rank - 1, col: 7 - fileIndex };
+}
 
-      from1 = { row: kingRow, col: 7 }; // rook
-      to1 = { row: kingRow, col: kingStartCol + 1 };
-      from2 = { row: kingRow, col: kingStartCol }; // king
-      to2 = { row: kingRow, col: kingStartCol + 2 };
-    } else {
-      // Queenside Castling
-      newGrid[kingRow][kingStartCol - 2] = newGrid[kingRow][kingStartCol]; // move king
-      newGrid[kingRow][kingStartCol] = 0;
+export function gridFromFen(fen: string, isWhitePieceDown: boolean): number[][] {
+  const chess = new Chess(fen);
+  const grid = Array.from({ length: 8 }, () => Array<number>(8).fill(0));
 
-      newGrid[kingRow][kingStartCol - 1] = newGrid[kingRow][0]; // move rook
-      newGrid[kingRow][0] = 0;
-
-      from1 = { row: kingRow, col: 0 }; // rook
-      to1 = { row: kingRow, col: kingStartCol - 1 };
-      from2 = { row: kingRow, col: kingStartCol }; // king
-      to2 = { row: kingRow, col: kingStartCol - 2 };
-    }
-
-    setValidMoves([[]]);
-    setPiecesInAttack([[]]);
-
-    console.log('Castling Move:', from1, to1, from2, to2);
-
-    // Emit rook move
-    socket.emit('move', {
-      roomId,
-      move: {
-        piece: grid[from1.row][from1.col],
-        from: from1,
-        to: to1,
-      },
-    });
-
-    // Emit king move
-    socket.emit('move', {
-      roomId,
-      move: {
-        piece: grid[from2.row][from2.col],
-        from: from2,
-        to: to2,
-      },
-    });
-
-    return newGrid;
-  });
-};
-
-const movePiece = (
-  grid: number[][],
-  row: number,
-  col: number,
-  currentPiece: number,
-  movingPieceIndex: { row: number; col: number },
-  setGrid: React.Dispatch<React.SetStateAction<number[][]>>,
-  setValidMoves: React.Dispatch<React.SetStateAction<number[][]>>,
-  setPiecesInAttack: React.Dispatch<React.SetStateAction<number[][]>>,
-  blackScore: number[],
-  whiteScore: number[],
-  setBlackScore: React.Dispatch<React.SetStateAction<number[]>>,
-  setWhiteScore: React.Dispatch<React.SetStateAction<number[]>>,
-  setShowTooltip: React.Dispatch<React.SetStateAction<boolean>>,
-  roomId: string
-) => {
-  const movingPiece = grid[movingPieceIndex.row][movingPieceIndex.col];
-  const targetPiece = grid[row][col];
-  if (isCastlingMove(grid, row, col, movingPieceIndex)) {
-    executeCastling(roomId, grid, col, movingPieceIndex, setGrid, setValidMoves, setPiecesInAttack);
-    return;
-  }
-  if (movingPiece !== 0 && targetPiece !== 0 && movingPiece * targetPiece > 0) {
-    setValidMoves([[]]);
-    setPiecesInAttack([[]]);
-    return;
-  }
-  let executed = false;
-  setValidMoves([[]]);
-  setPiecesInAttack([[]]);
-
-  socket.emit('move', {
-    roomId,
-    move: {
-      piece: grid[movingPieceIndex.row][movingPieceIndex.col],
-      from: {
-        row: movingPieceIndex.row,
-        col: movingPieceIndex.col,
-      },
-      to: {
-        row,
-        col,
-      },
-    },
-  });
-
-  setGrid(prevGrid => {
-    const newGrid = prevGrid.map((r: number[]) => [...r]);
-    const piece = newGrid[row][col];
-
-    if (!executed) {
-      const updatedBlackScore = piece > 0 ? [...blackScore, piece] : blackScore;
-      const updatedWhiteScore = piece < 0 ? [...whiteScore, piece] : whiteScore;
-      socket.emit(
-        'updateOpponentScore',
-        roomId,
-        piece > 0 ? updatedBlackScore : updatedWhiteScore,
-        piece > 0 ? 'black' : 'white'
-      );
-      if (piece > 0) {
-        setBlackScore(updatedBlackScore);
-      } else if (piece < 0) {
-        setWhiteScore(updatedWhiteScore);
-      }
-    }
-    newGrid[row][col] = prevGrid[movingPieceIndex.row][movingPieceIndex.col];
-    newGrid[movingPieceIndex.row][movingPieceIndex.col] = 0;
-    executed = true;
-    return newGrid;
-  });
-
-  const val = grid[movingPieceIndex.row][movingPieceIndex.col];
-  if (
-    (row == 0 || row == 7) &&
-    (val == 6 || val == -6) &&
-    currentPiece != 1 &&
-    currentPiece != -1
-  ) {
-    setShowTooltip(true);
-  }
-};
-
-const getValidAndAttackingMoves = (
-  grid: number[][],
-  rowIndex: number,
-  colIndex: number,
-  rowStep: number,
-  colStep: number,
-  isKingCase: boolean = false
-): { moves1: number[][]; moves2: number[][] } => {
-  const moves1: number[][] = [[]];
-  const moves2: number[][] = [[]];
-  let newRow = rowIndex + rowStep;
-  let newCol = colIndex + colStep;
-  while (newRow >= 0 && newRow <= 7 && newCol >= 0 && newCol <= 7) {
-    if (grid[newRow][newCol] === 0) {
-      moves1.push([newRow, newCol]);
-    } else if (grid[newRow][newCol] * grid[rowIndex][colIndex] < 0) {
-      moves2.push([newRow, newCol]);
-      break;
-    } else {
-      break;
-    }
-    newRow += rowStep;
-    newCol += colStep;
-    if (isKingCase) break;
+  for (const square of FILES.flatMap(file =>
+    [1, 2, 3, 4, 5, 6, 7, 8].map(rank => `${file}${rank}` as Square)
+  )) {
+    const piece = chess.get(square);
+    if (!piece) continue;
+    const { row, col } = squareToBoardIndex(square, isWhitePieceDown);
+    grid[row][col] = pieceCode(piece);
   }
 
-  return {
-    moves1,
-    moves2,
-  };
-};
+  return grid;
+}
 
-const getKnightMoves = (
-  grid: number[][],
-  row: number,
-  col: number
-): { moves1: number[][]; moves2: number[][] } => {
-  const potentialMoves = [
-    [row - 2, col - 1],
-    [row - 2, col + 1],
-    [row - 1, col - 2],
-    [row - 1, col + 2],
-    [row + 1, col - 2],
-    [row + 1, col + 2],
-    [row + 2, col - 1],
-    [row + 2, col + 1],
-  ];
-  return {
-    moves1: potentialMoves.filter(([r, c]) => isSafe(grid, r, c)),
-    moves2: potentialMoves.filter(
-      ([r, c]) => isSafe(grid, r, c, false) && grid[r][c] != 0 && grid[r][c] * grid[row][col] < 0
-    ),
-  };
-};
-
-const isBounded = (row: number, col: number) => {
-  return !(row < 0 || row > 7 || col < 0 || col > 7);
-};
-
-const highLight = (
-  grid: number[][],
+export function legalTargetsFromFen(
+  fen: string,
   row: number,
   col: number,
-  setValidMoves: React.Dispatch<React.SetStateAction<number[][]>>,
-  setPiecesInAttack: React.Dispatch<React.SetStateAction<number[][]>>,
   isWhitePieceDown: boolean
-) => {
-  const val = grid[row][col];
-  let validMoves: number[][] = [[]];
-  let attackingMoves: number[][] = [[]];
-  const stepArray = [
-    [-1, -1],
-    [-1, 0],
-    [-1, 1],
-    [0, 1],
-    [1, 1],
-    [1, 0],
-    [1, -1],
-    [0, -1],
-  ];
-  switch (val) {
-    case 6:
-    case -6: {
-      let step;
-      if ((grid[row][col] > 0 && !isWhitePieceDown) || (grid[row][col] < 0 && isWhitePieceDown))
-        step = 1;
-      else step = -1;
+) {
+  const chess = new Chess(fen);
+  const square = toBoardSquare(row, col, isWhitePieceDown);
+  const moves = chess.moves({ square, verbose: true });
+  const seenMoves = new Set<string>();
+  const seenCaptures = new Set<string>();
+  const validMoves: number[][] = [];
+  const piecesInAttack: number[][] = [];
 
-      if (isSafe(grid, row + step * 1, col)) {
-        validMoves.push([row + step * 1, col]);
-        if ((row === 1 || row === 6) && isSafe(grid, row + step * 2, col))
-          validMoves.push([row + step * 2, col]);
+  for (const move of moves) {
+    const index = squareToBoardIndex(move.to, isWhitePieceDown);
+    const key = `${index.row}:${index.col}`;
+    if (move.isCapture() || move.isEnPassant()) {
+      if (!seenCaptures.has(key)) {
+        piecesInAttack.push([index.row, index.col]);
+        seenCaptures.add(key);
       }
-      if (
-        isBounded(row + step * 1, col - 1) &&
-        grid[row + step * 1][col - 1] * grid[row][col] < 0
-      ) {
-        attackingMoves.push([row + step * 1, col - 1]);
-      }
-      if (
-        isBounded(row + step * 1, col + 1) &&
-        grid[row + step * 1][col + 1] * grid[row][col] < 0
-      ) {
-        attackingMoves.push([row + step * 1, col + 1]);
-      }
-      break;
-    }
-
-    case 1:
-    case -1:
-      for (let i = 0; i < stepArray.length; i++) {
-        const { moves1, moves2 } = getValidAndAttackingMoves(
-          grid,
-          row,
-          col,
-          stepArray[i][0],
-          stepArray[i][1],
-          true
-        );
-        validMoves = [...validMoves, ...moves1];
-        attackingMoves = [...attackingMoves, ...moves2];
-      }
-      break;
-
-    case 2:
-    case -2:
-      for (let i = 0; i < stepArray.length; i++) {
-        const { moves1, moves2 } = getValidAndAttackingMoves(
-          grid,
-          row,
-          col,
-          stepArray[i][0],
-          stepArray[i][1]
-        );
-        validMoves = [...validMoves, ...moves1];
-        attackingMoves = [...attackingMoves, ...moves2];
-      }
-      break;
-
-    case 3:
-    case -3:
-      for (let i = 0; i < stepArray.length; i += 2) {
-        const { moves1, moves2 } = getValidAndAttackingMoves(
-          grid,
-          row,
-          col,
-          stepArray[i][0],
-          stepArray[i][1]
-        );
-        validMoves = [...validMoves, ...moves1];
-        attackingMoves = [...attackingMoves, ...moves2];
-      }
-      break;
-
-    case 4:
-    case -4: {
-      const total_moves2 = getKnightMoves(grid, row, col);
-      validMoves = total_moves2.moves1;
-      attackingMoves = total_moves2.moves2;
-      break;
-    }
-
-    case 5:
-    case -5:
-      for (let i = 1; i < stepArray.length; i += 2) {
-        const { moves1, moves2 } = getValidAndAttackingMoves(
-          grid,
-          row,
-          col,
-          stepArray[i][0],
-          stepArray[i][1]
-        );
-        validMoves = [...validMoves, ...moves1];
-        attackingMoves = [...attackingMoves, ...moves2];
-      }
-      break;
-
-    default:
-  }
-  setValidMoves(prevValidMoves => [...prevValidMoves, ...validMoves]);
-  setPiecesInAttack(prevAttackingMoves => [...prevAttackingMoves, ...attackingMoves]);
-};
-
-const isPathClear = (grid: number[][], row: number, colStart: number, colEnd: number) => {
-  for (let i = colStart; i <= colEnd; i++) {
-    if (grid[row][i] != 0) return false;
-  }
-  return true;
-};
-
-const checkIfCastlingIsPossible = (
-  grid: number[][],
-  row: number,
-  col: number,
-  setPiecesInAttack: React.Dispatch<React.SetStateAction<number[][]>>,
-  isWhitePieceDown: boolean
-) => {
-  if (grid[row][col] != 1 && grid[row][col] != -1) return;
-  if (!(row == 0 || row == 7)) return;
-  if (!(col == 3 || col == 4)) return;
-  if (isWhitePieceDown) {
-    if (row == 0) {
-      if (grid[0][0] === -5 && isPathClear(grid, 0, 1, 3)) {
-        setPiecesInAttack(prev => [...prev, [0, 0]]);
-      }
-      if (grid[0][7] === -5 && isPathClear(grid, 0, 5, 6)) {
-        setPiecesInAttack(prev => [...prev, [0, 7]]);
-      }
-    } else {
-      if (grid[7][0] === 5 && isPathClear(grid, 7, 1, 3)) {
-        setPiecesInAttack(prev => [...prev, [7, 0]]);
-      }
-      if (grid[7][7] === 5 && isPathClear(grid, 7, 5, 6)) {
-        setPiecesInAttack(prev => [...prev, [7, 7]]);
-      }
-    }
-  } else {
-    if (row == 0) {
-      if (grid[0][0] === 5 && isPathClear(grid, 0, 1, 3)) {
-        setPiecesInAttack(prev => [...prev, [0, 0]]);
-      }
-      if (grid[0][7] === 5 && isPathClear(grid, 0, 5, 6)) {
-        setPiecesInAttack(prev => [...prev, [0, 7]]);
-      }
-    } else {
-      if (grid[7][0] === -5 && isPathClear(grid, 7, 1, 3)) {
-        setPiecesInAttack(prev => [...prev, [7, 0]]);
-      }
-      if (grid[7][7] === -5 && isPathClear(grid, 7, 5, 6)) {
-        setPiecesInAttack(prev => [...prev, [7, 7]]);
-      }
+    } else if (!seenMoves.has(key)) {
+      validMoves.push([index.row, index.col]);
+      seenMoves.add(key);
     }
   }
-};
-export const handleSquareClick = (
-  event: React.MouseEvent<HTMLDivElement, MouseEvent>,
-  grid: number[][],
-  row: number,
-  col: number,
-  setGrid: React.Dispatch<React.SetStateAction<number[][]>>,
-  movingPieceIndex: { row: number; col: number },
-  setMovingPieceIndex: React.Dispatch<
-    React.SetStateAction<{
-      row: number;
-      col: number;
-    }>
-  >,
-  validMoves: number[][],
+
+  return { validMoves, piecesInAttack };
+}
+
+export function isPromotionMove(fen: string, from: Square, to: Square): boolean {
+  const chess = new Chess(fen);
+  return chess
+    .moves({ square: from, verbose: true })
+    .some(move => move.from === from && move.to === to && move.isPromotion());
+}
+
+export function pieceCodeToPromotionPiece(piece: number): PromotionPiece {
+  const absolutePiece = Math.abs(piece);
+  if (absolutePiece === 5) return 'r';
+  if (absolutePiece === 3) return 'b';
+  if (absolutePiece === 4) return 'n';
+  return 'q';
+}
+
+export function capturedPiecesFromFen(fen: string, capturedBy: PlayerColor): number[] {
+  const chess = new Chess(fen);
+  const currentCounts: Record<number, number> = {};
+
+  for (const row of chess.board()) {
+    for (const piece of row) {
+      if (!piece) continue;
+      const code = pieceCode(piece);
+      currentCounts[code] = (currentCounts[code] ?? 0) + 1;
+    }
+  }
+
+  const capturedPieceCodes =
+    capturedBy === 'white' ? [-1, -2, -3, -4, -5, -6] : [1, 2, 3, 4, 5, 6];
+
+  return capturedPieceCodes.flatMap(code =>
+    Array(Math.max(0, STARTING_COUNTS[code] - (currentCounts[code] ?? 0))).fill(code)
+  );
+}
+
+export function applyMoveToFen(
+  fen: string,
+  move: PendingPromotionMove,
+  promotion?: PromotionPiece
+): ChessMove | null {
+  const chess = new Chess(fen);
+  return chess.move({ from: move.from, to: move.to, promotion });
+}
+
+function resetSelection(
   setValidMoves: React.Dispatch<React.SetStateAction<number[][]>>,
-  piecesInAttack: number[][],
   setPiecesInAttack: React.Dispatch<React.SetStateAction<number[][]>>,
-  blackScore: number[],
-  whiteScore: number[],
-  setBlackScore: React.Dispatch<React.SetStateAction<number[]>>,
-  setWhiteScore: React.Dispatch<React.SetStateAction<number[]>>,
-  setTooltipX: React.Dispatch<React.SetStateAction<number>>,
-  setTooltipY: React.Dispatch<React.SetStateAction<number>>,
-  setShowTooltip: React.Dispatch<React.SetStateAction<boolean>>,
-  isBlackMove: boolean,
-  setIsBlackMove: React.Dispatch<React.SetStateAction<boolean>>,
-  isWhitePieceDown: boolean,
-  roomId: string
-) => {
-  const currentPiece = grid[row][col];
-  if (
-    validMoves.some(move => move[0] == row && move[1] == col) ||
-    piecesInAttack.some(move => move[0] == row && move[1] == col)
-  ) {
-    if (movingPieceIndex.row == -1) {
+  setMovingPieceIndex: React.Dispatch<React.SetStateAction<{ row: number; col: number }>>
+) {
+  setValidMoves([]);
+  setPiecesInAttack([]);
+  setMovingPieceIndex({ row: -1, col: -1 });
+}
+
+export function handleSquareClick({
+  event,
+  fen,
+  row,
+  col,
+  movingPieceIndex,
+  setMovingPieceIndex,
+  validMoves,
+  piecesInAttack,
+  setValidMoves,
+  setPiecesInAttack,
+  setTooltipX,
+  setTooltipY,
+  setShowTooltip,
+  isWhitePieceDown,
+  onMoveReady,
+  onPromotionRequired,
+}: HandleSquareClickArgs) {
+  const clickedTarget =
+    validMoves.some(([r, c]) => r === row && c === col) ||
+    piecesInAttack.some(([r, c]) => r === row && c === col);
+
+  if (clickedTarget && movingPieceIndex.row !== -1) {
+    const move = {
+      from: toBoardSquare(movingPieceIndex.row, movingPieceIndex.col, isWhitePieceDown),
+      to: toBoardSquare(row, col, isWhitePieceDown),
+    };
+
+    resetSelection(setValidMoves, setPiecesInAttack, setMovingPieceIndex);
+
+    if (isPromotionMove(fen, move.from, move.to)) {
+      setTooltipX(event.clientX);
+      setTooltipY(event.clientY);
+      setShowTooltip(true);
+      onPromotionRequired(move);
       return;
     }
-    const movingPiece = grid[movingPieceIndex.row][movingPieceIndex.col];
-    if (
-      !isCastlingMove(grid, row, col, movingPieceIndex) &&
-      movingPiece !== 0 &&
-      currentPiece !== 0 &&
-      movingPiece * currentPiece > 0
-    ) {
-      setValidMoves([[]]);
-      setPiecesInAttack([[]]);
-      setMovingPieceIndex({ row: -1, col: -1 });
-      return;
-    }
-    setTooltipX(event.clientX);
-    setTooltipY(event.clientY);
-    setIsBlackMove(prev => !prev);
-    movePiece(
-      grid,
-      row,
-      col,
-      currentPiece,
-      movingPieceIndex,
-      setGrid,
-      setValidMoves,
-      setPiecesInAttack,
-      blackScore,
-      whiteScore,
-      setBlackScore,
-      setWhiteScore,
-      setShowTooltip,
-      roomId
-    );
-    setMovingPieceIndex({ row: row, col: col });
-  } else {
-    // If the clicked square is not a valid move or attack, reset the moving piece
-    if (movingPieceIndex.row != -1) {
-      setValidMoves([[]]);
-      setPiecesInAttack([[]]);
-      setMovingPieceIndex({ row: -1, col: -1 });
-    }
 
-    if ((isBlackMove && currentPiece > 0) || (!isBlackMove && currentPiece < 0)) return;
-    checkIfCastlingIsPossible(grid, row, col, setPiecesInAttack, isWhitePieceDown);
-    setMovingPieceIndex({ row: row, col: col });
-    highLight(grid, row, col, setValidMoves, setPiecesInAttack, isWhitePieceDown);
+    onMoveReady(move);
+    return;
   }
-};
+
+  const chess = new Chess(fen);
+  const square = toBoardSquare(row, col, isWhitePieceDown);
+  const piece = chess.get(square);
+  resetSelection(setValidMoves, setPiecesInAttack, setMovingPieceIndex);
+  setShowTooltip(false);
+
+  if (!piece || piece.color !== chess.turn()) return;
+
+  const targets = legalTargetsFromFen(fen, row, col, isWhitePieceDown);
+  setMovingPieceIndex({ row, col });
+  setValidMoves(targets.validMoves);
+  setPiecesInAttack(targets.piecesInAttack);
+}

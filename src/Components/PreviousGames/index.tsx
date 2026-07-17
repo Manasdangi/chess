@@ -14,7 +14,7 @@ function formatEndReason(reason: string): string {
     opponent_resigned: 'Opponent resigned',
     opponent_timeout: 'Opponent timed out',
     clock_timeout: 'Clock',
-    resigned: 'You resigned',
+    resigned: 'Resignation',
   };
   return labels[reason] ?? reason.replace(/_/g, ' ');
 }
@@ -51,7 +51,10 @@ export const PreviousGames: React.FC<IProps> = ({ onClose }) => {
             const opponentLabel =
               game.opponentDisplayName?.trim() || game.opponentEmail || 'Unknown opponent';
             return (
-              <div key={game.id ?? `${game.playedAt}-${game.opponentEmail}`} className={styles.gameItem}>
+              <div
+                key={game.id ?? `${game.playedAt}-${game.opponentEmail}`}
+                className={styles.gameItem}
+              >
                 <div>{playedDate.toDateString()}</div>
                 <div>Opponent: {opponentLabel}</div>
                 {game.opponentDisplayName?.trim() && (
@@ -59,7 +62,15 @@ export const PreviousGames: React.FC<IProps> = ({ onClose }) => {
                 )}
                 <div>
                   Result:
-                  <span className={game.result === 'win' ? styles.win : styles.loss}>
+                  <span
+                    className={
+                      game.result === 'win'
+                        ? styles.win
+                        : game.result === 'loss'
+                          ? styles.loss
+                          : styles.hint
+                    }
+                  >
                     {game.result.toUpperCase()}
                   </span>
                 </div>

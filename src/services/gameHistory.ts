@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../Firebase/firebase';
 
-export type GameResult = 'win' | 'loss';
+export type GameResult = 'win' | 'loss' | 'draw';
 
 export interface GameHistoryEntry {
   id?: string;
@@ -55,7 +55,7 @@ export async function fetchGameHistory(uid: string, max = 50): Promise<GameHisto
       id: d.id,
       opponentEmail: String(data.opponentEmail ?? ''),
       opponentDisplayName: String(data.opponentDisplayName ?? ''),
-      result: data.result === 'loss' ? 'loss' : 'win',
+      result: data.result === 'loss' ? 'loss' : data.result === 'draw' ? 'draw' : 'win',
       myColor: data.myColor === 'black' ? 'black' : 'white',
       roomId: data.roomId ?? undefined,
       endReason: data.endReason != null ? String(data.endReason) : undefined,

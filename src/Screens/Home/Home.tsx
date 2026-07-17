@@ -10,6 +10,44 @@ import { FaChessKnight } from 'react-icons/fa6';
 import RightSideMenu from '../../Components/RightMenu';
 import { getGuestIdentity } from '../../utils/guestIdentity';
 
+function waitForSocketConnection(timeoutMs = 5000): Promise<boolean> {
+  if (socket.connected) return Promise.resolve(true);
+
+  socket.connect();
+  return new Promise(resolve => {
+    const cleanup = () => {
+      window.clearTimeout(timeoutId);
+      socket.off('connect', handleConnect);
+      socket.off('connect_error', handleError);
+    };
+    const handleConnect = () => {
+      cleanup();
+      resolve(true);
+    };
+    const handleError = () => {
+      cleanup();
+      resolve(false);
+    };
+    const timeoutId = window.setTimeout(() => {
+      cleanup();
+      resolve(false);
+    }, timeoutMs);
+
+    socket.once('connect', handleConnect);
+    socket.once('connect_error', handleError);
+  });
+}
+
+function checkRoomExists(roomId: string, timeoutMs = 5000): Promise<boolean | null> {
+  return new Promise(resolve => {
+    const timeoutId = window.setTimeout(() => resolve(null), timeoutMs);
+    socket.emit('checkRoom', roomId, (exists: boolean) => {
+      window.clearTimeout(timeoutId);
+      resolve(exists);
+    });
+  });
+}
+
 export default function Home() {
   const [roomId, setRoomId] = useState('');
   const [error, setError] = useState('');
@@ -18,6 +56,8 @@ export default function Home() {
   const [popupType, setPopupType] = useState<'success' | 'error'>('success');
   const [showMenu, setShowMenu] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  const [isJoiningRoom, setIsJoiningRoom] = useState(false);
   const navigate = useNavigate();
 
   const { isLoggedIn, user } = useAuthStore();
@@ -45,36 +85,66 @@ export default function Home() {
     }
   };
 
-  const handleJoin = () => {
+  const handleJoin = async () => {
+    if (isJoiningRoom) return;
     const nextRoomId = getRoomIdFromInput(roomId);
     if (!nextRoomId) {
       showMessage('Please enter a room ID', 'error');
       return;
     }
 
-    socket.emit('checkRoom', nextRoomId, (exists: boolean) => {
-      if (exists) {
-        console.log('joining room', nextRoomId);
-        showMessage('Joining room...');
-        navigate(`/room/${nextRoomId}`);
-      } else {
-        showMessage('Room does not exist', 'error');
-      }
-    });
+    setIsJoiningRoom(true);
+    const isConnected = await waitForSocketConnection();
+    if (!isConnected) {
+      setIsJoiningRoom(false);
+      showMessage('Game server is not running. Start it with npm run dev:backend.', 'error');
+      return;
+    }
+
+    const exists = await checkRoomExists(nextRoomId);
+    setIsJoiningRoom(false);
+    if (exists === null) {
+      showMessage('Game server did not respond. Please try again.', 'error');
+    } else if (exists) {
+      console.log('joining room', nextRoomId);
+      showMessage('Joining room...');
+      navigate(`/room/${nextRoomId}`);
+    } else {
+      showMessage('Room does not exist', 'error');
+    }
   };
 
-  const handleCreate = () => {
-    const newRoomId = Math.random().toString(36).substring(2, 8);
-    socket.emit('checkRoom', newRoomId, (exists: boolean) => {
-      if (exists) {
-        console.log('room already used, trying again');
-        handleCreate();
-      } else {
+  const handleCreate = async () => {
+    if (isCreatingRoom) return;
+
+    setIsCreatingRoom(true);
+    const isConnected = await waitForSocketConnection();
+    if (!isConnected) {
+      setIsCreatingRoom(false);
+      showMessage('Game server is not running. Start it with npm run dev:backend.', 'error');
+      return;
+    }
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const newRoomId = Math.random().toString(36).substring(2, 8);
+      const exists = await checkRoomExists(newRoomId);
+      if (exists === null) {
+        setIsCreatingRoom(false);
+        showMessage('Game server did not respond. Please try again.', 'error');
+        return;
+      }
+      if (!exists) {
         setRoomId(newRoomId);
         console.log('creatingRoom', newRoomId);
+        setIsCreatingRoom(false);
         navigate(`/room/${newRoomId}`);
+        return;
       }
-    });
+      console.log('room already used, trying again');
+    }
+
+    setIsCreatingRoom(false);
+    showMessage('Could not create a unique room. Please try again.', 'error');
   };
 
   if (showLogin && !isLoggedIn) return <Login onContinueAsGuest={() => setShowLogin(false)} />;
@@ -133,8 +203,13 @@ export default function Home() {
                 autoComplete="off"
                 spellCheck={false}
               />
-              <button type="button" className={styles.joinButton} onClick={handleJoin}>
-                Join Game
+              <button
+                type="button"
+                className={styles.joinButton}
+                onClick={handleJoin}
+                disabled={isJoiningRoom}
+              >
+                {isJoiningRoom ? 'Joining...' : 'Join Game'}
               </button>
             </div>
           </div>
@@ -147,8 +222,13 @@ export default function Home() {
             <span className={styles.dividerLine} />
           </div>
 
-          <button type="button" className={styles.createButton} onClick={handleCreate}>
-            Create New Game
+          <button
+            type="button"
+            className={styles.createButton}
+            onClick={handleCreate}
+            disabled={isCreatingRoom}
+          >
+            {isCreatingRoom ? 'Creating...' : 'Create New Game'}
           </button>
         </main>
 
