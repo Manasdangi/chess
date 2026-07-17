@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socket from '../../Socket/socket';
 import styles from './Home.module.scss';
@@ -9,6 +9,7 @@ import { GiHamburgerMenu } from 'react-icons/gi';
 import { FaChessKnight } from 'react-icons/fa6';
 import RightSideMenu from '../../Components/RightMenu';
 import { getGuestIdentity } from '../../utils/guestIdentity';
+import { registerHomeViewer } from '../../services/viewerCount';
 import {
   BOT_DIFFICULTIES,
   BOT_DIFFICULTY_LABELS,
@@ -64,6 +65,8 @@ export default function Home() {
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
   const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('medium');
+  const [viewerCount, setViewerCount] = useState<number | null>(null);
+  const [viewerCountFailed, setViewerCountFailed] = useState(false);
   const navigate = useNavigate();
 
   const { isLoggedIn, user } = useAuthStore();
@@ -157,6 +160,25 @@ export default function Home() {
     navigate(`/bot?difficulty=${botDifficulty}`);
   };
 
+  useEffect(() => {
+    let isMounted = true;
+
+    registerHomeViewer()
+      .then(count => {
+        if (!isMounted) return;
+        setViewerCount(count);
+        setViewerCountFailed(false);
+      })
+      .catch(error => {
+        console.warn('Could not update viewer count', error);
+        if (isMounted) setViewerCountFailed(true);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   if (showLogin && !isLoggedIn) return <Login onContinueAsGuest={() => setShowLogin(false)} />;
 
   return (
@@ -184,6 +206,13 @@ export default function Home() {
             </span>
             <p className={styles.greeting}>Welcome, {displayName}</p>
             <h1 className={styles.title}>Choose Game Mode</h1>
+            <p className={styles.viewerCount} aria-live="polite">
+              {viewerCountFailed
+                ? 'Viewer count unavailable'
+                : viewerCount === null
+                  ? 'Loading total viewers...'
+                  : `${viewerCount} all-time ${viewerCount === 1 ? 'viewer' : 'viewers'}`}
+            </p>
           </header>
 
           <div className={styles.modeGrid}>

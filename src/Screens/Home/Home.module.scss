@@ -75,6 +75,23 @@
   color: #f8fafc;
 }
 
+.viewerCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.75rem;
+  margin: 0.75rem auto 0;
+  padding: 0.3rem 0.75rem;
+  color: #bbf7d0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.2;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(134, 239, 172, 0.2);
+  border-radius: 999px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
 .modeGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
