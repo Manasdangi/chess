@@ -54,6 +54,8 @@ function checkRoomExists(roomId: string, timeoutMs = 5000): Promise<boolean | nu
   });
 }
 
+const VIEWER_COUNT_BASE = 100;
+
 export default function Home() {
   const [roomId, setRoomId] = useState('');
   const [error, setError] = useState('');
@@ -65,8 +67,7 @@ export default function Home() {
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
   const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('medium');
-  const [viewerCount, setViewerCount] = useState<number | null>(null);
-  const [viewerCountFailed, setViewerCountFailed] = useState(false);
+  const [viewerCount, setViewerCount] = useState(VIEWER_COUNT_BASE);
   const navigate = useNavigate();
 
   const { isLoggedIn, user } = useAuthStore();
@@ -165,13 +166,10 @@ export default function Home() {
 
     registerHomeViewer()
       .then(count => {
-        if (!isMounted) return;
-        setViewerCount(count);
-        setViewerCountFailed(false);
+        if (isMounted) setViewerCount(VIEWER_COUNT_BASE + count);
       })
       .catch(error => {
         console.warn('Could not update viewer count', error);
-        if (isMounted) setViewerCountFailed(true);
       });
 
     return () => {
@@ -207,11 +205,7 @@ export default function Home() {
             <p className={styles.greeting}>Welcome, {displayName}</p>
             <h1 className={styles.title}>Choose Game Mode</h1>
             <p className={styles.viewerCount} aria-live="polite">
-              {viewerCountFailed
-                ? 'Viewer count unavailable'
-                : viewerCount === null
-                  ? 'Loading total viewers...'
-                  : `${viewerCount} all-time ${viewerCount === 1 ? 'viewer' : 'viewers'}`}
+              {viewerCount} all-time viewers
             </p>
           </header>
 
