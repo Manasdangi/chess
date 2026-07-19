@@ -25,6 +25,7 @@ interface HandleSquareClickArgs {
   isWhitePieceDown: boolean;
   onMoveReady: (move: PendingPromotionMove, promotion?: PromotionPiece) => void;
   onPromotionRequired: (move: PendingPromotionMove) => void;
+  onValidationError: (message: string, type?: 'error' | 'warning') => void;
 }
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] as const;
@@ -36,6 +37,15 @@ const PIECE_TO_CODE: Record<PieceSymbol, number> = {
   n: 4,
   r: 5,
   p: 6,
+};
+
+const PIECE_NAMES: Record<PieceSymbol, string> = {
+  k: 'king',
+  q: 'queen',
+  b: 'bishop',
+  n: 'knight',
+  r: 'rook',
+  p: 'pawn',
 };
 
 const STARTING_COUNTS: Record<number, number> = {
@@ -158,8 +168,7 @@ export function capturedPiecesFromFen(fen: string, capturedBy: PlayerColor): num
     }
   }
 
-  const capturedPieceCodes =
-    capturedBy === 'white' ? [-1, -2, -3, -4, -5, -6] : [1, 2, 3, 4, 5, 6];
+  const capturedPieceCodes = capturedBy === 'white' ? [-1, -2, -3, -4, -5, -6] : [1, 2, 3, 4, 5, 6];
 
   return capturedPieceCodes.flatMap(code =>
     Array(Math.max(0, STARTING_COUNTS[code] - (currentCounts[code] ?? 0))).fill(code)
@@ -202,6 +211,7 @@ export function handleSquareClick({
   isWhitePieceDown,
   onMoveReady,
   onPromotionRequired,
+  onValidationError,
 }: HandleSquareClickArgs) {
   const clickedTarget =
     validMoves.some(([r, c]) => r === row && c === col) ||
@@ -230,12 +240,60 @@ export function handleSquareClick({
   const chess = new Chess(fen);
   const square = toBoardSquare(row, col, isWhitePieceDown);
   const piece = chess.get(square);
-  resetSelection(setValidMoves, setPiecesInAttack, setMovingPieceIndex);
+  const hadSelectedPiece = movingPieceIndex.row !== -1;
   setShowTooltip(false);
 
-  if (!piece || piece.color !== chess.turn()) return;
+  if (!piece) {
+    if (chess.inCheck()) {
+      onValidationError(
+        hadSelectedPiece
+          ? 'Your king is in check! That move does not stop the attack.'
+          : 'Your king is in check! Move the king or choose a piece that can defend it.',
+        'warning'
+      );
+    } else {
+      onValidationError(
+        hadSelectedPiece
+          ? 'That square is not a legal destination for the selected piece.'
+          : 'Select one of your pieces first.'
+      );
+    }
+    return;
+  }
 
+  if (piece.color !== chess.turn()) {
+    if (chess.inCheck()) {
+      onValidationError(
+        hadSelectedPiece
+          ? 'Your king is in check! That capture does not stop the attack.'
+          : 'Your king is in check! You cannot select an opponent piece.',
+        'warning'
+      );
+    } else {
+      onValidationError(
+        hadSelectedPiece
+          ? 'That piece cannot be captured by the selected piece.'
+          : "You cannot move your opponent's piece."
+      );
+    }
+    return;
+  }
+
+  resetSelection(setValidMoves, setPiecesInAttack, setMovingPieceIndex);
   const targets = legalTargetsFromFen(fen, row, col, isWhitePieceDown);
+  if (targets.validMoves.length === 0 && targets.piecesInAttack.length === 0) {
+    if (chess.inCheck()) {
+      const pieceName = PIECE_NAMES[piece.type];
+      onValidationError(
+        `Your king is in check! This ${pieceName} cannot stop the attack. Move the king or choose a defending piece.`,
+        'warning'
+      );
+    } else {
+      onValidationError('That piece has no legal moves.');
+    }
+    return;
+  }
+
   setMovingPieceIndex({ row, col });
   setValidMoves(targets.validMoves);
   setPiecesInAttack(targets.piecesInAttack);

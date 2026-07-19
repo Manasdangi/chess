@@ -47,6 +47,13 @@ interface ChessBoardProps {
 }
 
 type ClockColor = 'white' | 'black';
+type ToastType = 'error' | 'warning' | 'info' | 'success';
+
+interface GameToast {
+  id: number;
+  message: string;
+  type: ToastType;
+}
 
 const ChessBoard = ({ mode = 'online' }: ChessBoardProps) => {
   const { user, addGameHistoryEntry } = useAuthStore();
@@ -88,11 +95,15 @@ const ChessBoard = ({ mode = 'online' }: ChessBoardProps) => {
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('medium');
   const [botStatus, setBotStatus] = useState('');
+  const [toast, setToast] = useState<GameToast | null>(null);
+  const [showQuitPopup, setShowQuitPopup] = useState(false);
 
   const historySavedRef = useRef(false);
   /** Set before setWinner so persist can attach Firestore metadata (e.g. king_capture). */
   const gameEndMetaRef = useRef<string | undefined>(undefined);
   const pendingPromotionMoveRef = useRef<PendingPromotionMove | null>(null);
+  const lastCheckToastFenRef = useRef('');
+  const quitCancelButtonRef = useRef<HTMLButtonElement | null>(null);
   const botClockRef = useRef<{
     turn: ClockColor | null;
     startedAt: number;
@@ -120,6 +131,27 @@ const ChessBoard = ({ mode = 'online' }: ChessBoardProps) => {
     [guestIdentity.displayName, guestIdentity.email, user?.displayName, user?.email]
   );
 
+  const showToast = useCallback((message: string, type: ToastType = 'error') => {
+    setToast({ id: Date.now(), message, type });
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 3200);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  useEffect(() => {
+    if (!showQuitPopup) return;
+
+    quitCancelButtonRef.current?.focus();
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowQuitPopup(false);
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [showQuitPopup]);
+
   useEffect(() => {
     setBotDifficulty(requestedBotDifficulty);
   }, [requestedBotDifficulty]);
@@ -128,6 +160,7 @@ const ChessBoard = ({ mode = 'online' }: ChessBoardProps) => {
     historySavedRef.current = false;
     gameEndMetaRef.current = undefined;
     pendingPromotionMoveRef.current = null;
+    lastCheckToastFenRef.current = '';
     botClockRef.current = {
       turn: null,
       startedAt: Date.now(),
@@ -195,7 +228,7 @@ const ChessBoard = ({ mode = 'online' }: ChessBoardProps) => {
       },
       onMoveAccepted: applyServerMovePayload,
       onMoveRejected: payload => {
-        alert(payload.message || 'Illegal move rejected by server.');
+        showToast(payload.message || 'Illegal move rejected by server.', 'error');
       },
       onOpponentMove: applyServerMovePayload,
       onClockUpdate: applyClockState,
@@ -205,22 +238,23 @@ const ChessBoard = ({ mode = 'online' }: ChessBoardProps) => {
         else setBlackScore(score);
       },
       onOpponentResign: () => {
-        alert('Opponent resigned, You win!');
+        showToast('Opponent resigned. You win!', 'success');
         gameEndMetaRef.current = 'opponent_resigned';
         setWinner(chosenPieceColor === 'white' ? 'white' : 'black');
       },
       onOpponentTimeout: () => {
-        alert('Opponent timed out, You win!');
+        showToast('Opponent timed out. You win!', 'success');
         gameEndMetaRef.current = 'opponent_timeout';
         setWinner(chosenPieceColor === 'white' ? 'white' : 'black');
       },
       onRoomFull: () => {
-        alert('Room is full, please try another room');
+        showToast('Room is full. Please try another room.', 'error');
         navigate('/');
       },
       onAlreadyInRoom: () => {
-        alert(
-          'You are already present in this room, Please cancel this tab and navigate to previous tab'
+        showToast(
+          'You are already present in this room, Please cancel this tab and navigate to previous tab',
+          'warning'
         );
       },
       onOpponentKingKilled: () => {
@@ -228,7 +262,14 @@ const ChessBoard = ({ mode = 'online' }: ChessBoardProps) => {
         setWinner(chosenPieceColor === 'white' ? 'black' : 'white');
       },
     }),
-    [applyClockState, applyGameOverPayload, applyServerMovePayload, chosenPieceColor, navigate]
+    [
+      applyClockState,
+      applyGameOverPayload,
+      applyServerMovePayload,
+      chosenPieceColor,
+      navigate,
+      showToast,
+    ]
   );
 
   const applyLocalBoardState = useCallback(
@@ -321,6 +362,20 @@ const ChessBoard = ({ mode = 'online' }: ChessBoardProps) => {
   }, [chosenPieceColor, gameFen]);
 
   useEffect(() => {
+    if (!chosenPieceColor || winner || lastCheckToastFenRef.current === gameFen) return;
+
+    const chess = new Chess(gameFen);
+    if (!chess.inCheck() || chess.isCheckmate()) return;
+
+    lastCheckToastFenRef.current = gameFen;
+    if (turnFromFen(gameFen) === chosenPieceColor) {
+      showToast('Your king is in check! Defend it before making another move.', 'warning');
+    } else {
+      showToast("Check! Your opponent's king is under attack.", 'success');
+    }
+  }, [chosenPieceColor, gameFen, showToast, winner]);
+
+  useEffect(() => {
     if (!isBotMode || !chosenPieceColor || winner) return;
 
     const now = Date.now();
@@ -329,8 +384,7 @@ const ChessBoard = ({ mode = 'online' }: ChessBoardProps) => {
 
     if (previousTurn) {
       const elapsedSeconds = Math.floor((now - botClockRef.current.startedAt) / 1000);
-      const chargedSeconds =
-        previousTurn === botColor && elapsedSeconds === 0 ? 1 : elapsedSeconds;
+      const chargedSeconds = previousTurn === botColor && elapsedSeconds === 0 ? 1 : elapsedSeconds;
 
       if (chargedSeconds > 0) {
         if (previousTurn === 'white') {
@@ -382,9 +436,10 @@ const ChessBoard = ({ mode = 'online' }: ChessBoardProps) => {
     (move: PendingPromotionMove, promotion?: PromotionPiece) => {
       if (isBotMode) {
         const chess = new Chess(gameFen);
-        const nextMove = chess.move({ from: move.from, to: move.to, promotion });
-        if (!nextMove) {
-          alert('Illegal move.');
+        try {
+          chess.move({ from: move.from, to: move.to, promotion });
+        } catch {
+          showToast('That move is not legal in this position.', 'error');
           return;
         }
 
@@ -401,7 +456,7 @@ const ChessBoard = ({ mode = 'online' }: ChessBoardProps) => {
         },
       });
     },
-    [applyLocalBoardState, gameFen, isBotMode, roomId]
+    [applyLocalBoardState, gameFen, isBotMode, roomId, showToast]
   );
 
   const selectPiece = (piece: number) => {
@@ -419,18 +474,22 @@ const ChessBoard = ({ mode = 'online' }: ChessBoardProps) => {
     colIndex: number
   ) => {
     if (winner) return;
+    if (pendingPromotionMoveRef.current) {
+      showToast('Choose a promotion piece before continuing.', 'warning');
+      return;
+    }
 
     const activeTurn = turnFromFen(gameFen);
     if (isBotMode) {
       if (!chosenPieceColor || activeTurn !== chosenPieceColor) {
-        alert('It is the bot turn.');
+        showToast('Stockfish is thinking. Wait for your turn.', 'info');
         return;
       }
     } else if (
       (chosenPieceColor === 'white' && isBlackMove) ||
       (chosenPieceColor === 'black' && !isBlackMove)
     ) {
-      alert('It is not your turn');
+      showToast("It is your opponent's turn.", 'info');
       return;
     }
 
@@ -453,6 +512,7 @@ const ChessBoard = ({ mode = 'online' }: ChessBoardProps) => {
       onPromotionRequired: move => {
         pendingPromotionMoveRef.current = move;
       },
+      onValidationError: (message, type = 'error') => showToast(message, type),
     });
   };
 
@@ -551,15 +611,68 @@ const ChessBoard = ({ mode = 'online' }: ChessBoardProps) => {
     return () => window.clearTimeout(timer);
   }, [applyLocalBoardState, botDifficulty, chosenPieceColor, gameFen, isBotMode, winner]);
 
-  const handleHomeClick = async () => {
-    if (!window.confirm('Are you sure you want to quit the game?')) return;
-    if (!isBotMode) socket.emit('resign', roomId, playerProfile.email);
+  const handleHomeClick = () => {
+    setShowQuitPopup(true);
+  };
+
+  const confirmQuitGame = async () => {
+    setShowQuitPopup(false);
+    if (!isBotMode && chosenPieceColor) socket.emit('resign', roomId, playerProfile.email);
     if (!isBotMode && chosenPieceColor && user?.uid) {
       historySavedRef.current = false;
       await persistFinishedGame('loss', 'resigned');
     }
     navigate('/');
   };
+
+  const renderOverlays = () => (
+    <>
+      {toast && (
+        <div
+          key={toast.id}
+          className={`${styles.toast} ${styles[toast.type]}`}
+          role="alert"
+          aria-live="assertive"
+        >
+          <span>{toast.message}</span>
+          <button type="button" aria-label="Dismiss notification" onClick={() => setToast(null)}>
+            &times;
+          </button>
+        </div>
+      )}
+      {showQuitPopup && (
+        <div className={styles.popupBackdrop} role="presentation">
+          <div
+            className={styles.confirmPopup}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quit-game-title"
+          >
+            <h2 id="quit-game-title">
+              {chosenPieceColor ? 'Quit this game?' : 'Leave this room?'}
+            </h2>
+            <p>
+              {chosenPieceColor
+                ? 'This will count as a resignation and your opponent will win.'
+                : 'You will return to the home screen.'}
+            </p>
+            <div className={styles.popupActions}>
+              <button
+                ref={quitCancelButtonRef}
+                type="button"
+                onClick={() => setShowQuitPopup(false)}
+              >
+                Keep playing
+              </button>
+              <button type="button" className={styles.confirmQuitButton} onClick={confirmQuitGame}>
+                Quit game
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
 
   const handleStartNewGame = () => {
     if (isBotMode) {
@@ -574,8 +687,10 @@ const ChessBoard = ({ mode = 'online' }: ChessBoardProps) => {
     try {
       await navigator.clipboard.writeText(`${window.location.origin}/room/${roomId}`);
       setCopyStatus('copied');
+      showToast('Invite link copied to your clipboard.', 'success');
     } catch {
       setCopyStatus('failed');
+      showToast('Could not copy the invite link. Please try again.', 'error');
     }
     window.setTimeout(() => setCopyStatus('idle'), 1800);
   };
@@ -597,6 +712,7 @@ const ChessBoard = ({ mode = 'online' }: ChessBoardProps) => {
         <button className={styles.newGameButton} onClick={handleStartNewGame}>
           Start a New Game
         </button>
+        {renderOverlays()}
       </div>
     );
   }
@@ -721,6 +837,7 @@ const ChessBoard = ({ mode = 'online' }: ChessBoardProps) => {
           )}
         </div>
       )}
+      {renderOverlays()}
     </div>
   );
 };
